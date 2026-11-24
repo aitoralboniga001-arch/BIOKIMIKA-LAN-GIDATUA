@@ -60,6 +60,15 @@ export function makeTrace(layer) {
         ctx.lineJoin = 'round'; ctx.lineWidth = 1.7; ctx.strokeStyle = 'rgba(58,70,92,.82)'; ctx.stroke();
       }
       ctx.globalCompositeOperation = 'destination-out'; ctx.fillStyle = fade; ctx.fillRect(0, 0, 150, h); ctx.globalCompositeOperation = 'source-over';
+      // Keep individual turnover events visible underneath the signal they generated.
+      ctx.strokeStyle = 'rgba(155,85,23,.68)'; ctx.lineWidth = 2;
+      ctx.beginPath();
+      for (const event of events) {
+        const x = hx - (tt - event) * speed;
+        if (x < 0) continue;
+        ctx.moveTo(x, base + 2); ctx.lineTo(x, base + 7);
+      }
+      ctx.stroke();
       // baseline hairline (same weight and place as the loader line) and the write head
       ctx.fillStyle = 'rgba(20,32,51,.16)'; ctx.fillRect(0, base - .5, w, 1);
       if (n) {

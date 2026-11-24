@@ -53,7 +53,7 @@ const REF = .18;
 export default {
   id: 'intensity', chapter: 1, beats: 4, title: 'Lesioaren intentsitatea eta entzimen jarduera', bloom: .5,
   bridgeIn: { focus() { return this.sc[0].g.getWorldPosition(_bf); } },
-  bridge: { mode: 'flow', dir: [1, .25] },
+  bridge: { mode: 'register', scaleRatio: 1.12, focus() { return this.sc[1].tube.getWorldPosition(_bf); } },
   build(layer) {
     const S = makeScene({ glow: '#FFF1E6', gx: .5, gy: .6 }); this.S = S; this.scene = S.scene; this.camera = S.camera;
     const A0 = [V(0, 1.85, 15.5), V(0, .12, 0), 34], A1 = [V(4.05, 2.3, 19.8), V(4.05, -.1, 0), 34]; // framed so counters clear the title and the equations end above y = 970 // card on the right: both slabs shift left, clear of it
@@ -83,17 +83,32 @@ export default {
       movers.sort((a, b) => a.launch - b.launch); movers.forEach((mv, i) => { mv.slot = i; });
       const tube = glassCylinder({ r: .36, h: TUBE_H }); tube.position.set(cfg.x, TUBE_Y, -.2); this.scene.add(tube);
       const cap=new THREE.Mesh(new THREE.CylinderGeometry(.39,.39,.13,32),new THREE.MeshStandardMaterial({color:'#98714c',roughness:.55})); cap.position.y=TUBE_H/2; cap.castShadow=true; tube.add(cap); s.mesh.castShadow=true;
-      const fill = new THREE.Mesh(new THREE.CylinderGeometry(.31, .31, 1, 40), new THREE.MeshPhysicalMaterial({ color: COL3.coral, transparent: true, opacity: .2, roughness: .3, depthWrite: false }));
+      const fill = new THREE.Mesh(new THREE.CylinderGeometry(.31, .31, 1, 40), new THREE.MeshPhysicalMaterial({ color: COL3.coral, transparent: true, opacity: .34, roughness: .3, depthWrite: false }));
       fill.position.set(cfg.x, TUBE_Y - TUBE_H / 2, -.2); this.scene.add(fill);
+      const meniscus = new THREE.Mesh(new THREE.TorusGeometry(.307, .022, 8, 40),
+        new THREE.MeshBasicMaterial({ color: '#934c41' }));
+      meniscus.rotation.x = Math.PI / 2;
+      meniscus.position.copy(fill.position);
+      this.scene.add(meniscus);
+      // The same graduation scale lets the audience compare the two final levels directly.
+      const strokes = [];
+      for (let n = 0; n <= TOTAL; n += 5) {
+        const y = TUBE_Y - TUBE_H / 2 + n / TOTAL * FILL_MAX;
+        const len = n % 10 === 0 ? .20 : .11;
+        strokes.push(cfg.x+.16,y,.12,cfg.x+.16+len,y,.12);
+      }
+      const marks = new THREE.BufferGeometry();
+      marks.setAttribute('position',new THREE.Float32BufferAttribute(strokes,3));
+      this.scene.add(new THREE.LineSegments(marks,new THREE.LineBasicMaterial({color:'#695d58',transparent:true,opacity:.68})));
       // DOM: equation under the slab, live count above the tube
       const eqEl = add(layer, `<div class="abs" style="left:0;top:0;width:420px;text-align:center;text-shadow:var(--halo)">
         <div style="font:700 26px/1.2 var(--sans);color:${INK}">${cfg.title}<span style="display:block;font-weight:400;font-size:23px;color:${MUTE}">${cfg.sub}</span></div>
         <div style="font:400 54px/1.05 var(--serif);color:${INK};margin-top:4px"><b class="nd" style="font-weight:600">0</b><span style="color:${MUTE};margin:0 14px">×</span><b style="font-weight:600;color:${PAL.coral}">${cfg.per}</b></div>
         <div style="font:500 22px/1.25 var(--sans);color:${MUTE}">zelula kaltetuta × entzima zelulako</div><div style="font:italic 400 22px/1.2 var(--serif);color:${MUTE}">eskematikoa</div></div>`);
       const numEl = add(layer, `<div class="abs" style="left:0;top:0;width:260px;text-align:center;text-shadow:var(--halo)">
-        <div class="ar" style="font:400 70px/1 var(--serif);color:${PAL.coral}">0</div>
+        <div class="ar" style="font:500 70px/1 var(--serif);font-variant-numeric:lining-nums tabular-nums;letter-spacing:-.045em;color:${PAL.coral}">0</div>
         <div style="font:500 22px/1.2 var(--sans);color:${MUTE};margin-top:4px">entzima plasman</div></div>`);
-      return { cfg, g, s, dmg, dots, movers, tube, fill, eqEl, numEl, ndEl: eqEl.querySelector('.nd'), arEl: numEl.querySelector('.ar'), lastNd: -1, lastAr: -1,
+      return { cfg, g, s, dmg, dots, movers, tube, fill, meniscus, eqEl, numEl, ndEl: eqEl.querySelector('.nd'), arEl: numEl.querySelector('.ar'), lastNd: -1, lastAr: -1,
         aTop: V(cfg.x, TUBE_Y + TUBE_H / 2 + .12, -.2), aBot: V(cfg.x, -1.7, 1.55) };
     });
     this.aEq = V(0, TUBE_Y + TUBE_H / 2 + .12, -.2);
@@ -171,6 +186,8 @@ export default {
       s.dots.instanceMatrix.needsUpdate = true;
       const lvl = arrived / TOTAL * FILL_MAX;
       s.fill.scale.y = Math.max(.001, lvl); s.fill.position.y = TUBE_Y - TUBE_H / 2 + lvl / 2; s.fill.visible = lvl > .002;
+      s.meniscus.visible = s.fill.visible;
+      s.meniscus.position.y = s.fill.position.y + lvl / 2;
       if (nd !== s.lastNd) { s.ndEl.textContent = nd; s.lastNd = nd; }
       if (arrived !== s.lastAr) { s.arEl.textContent = arrived; s.lastAr = arrived; }
       if (arrived < TOTAL) done = false;

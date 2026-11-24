@@ -19,9 +19,26 @@ import { CHAPTER_TINT } from './theme.js';
 
 import { finishNoise, finishShader } from './finish.js';
 
-const MODE = { fade: 0, dive: 1, flow: 2, cells: 3, drop: 4 };
-const DUR = { fade: .45, dive: 1.45, flow: 1.35, cells: 1.5, drop: 1.7 };
-const CHAPTER_DUR = 1.95;   // chapter bridges are a little longer: the title card needs a beat to be read
+// Spoken handoffs follow the order of the talk and sit below all scientific figures.
+const QUESTIONS = {
+  title: 'Zer neurtzen du laborategiak odol-laginean?',
+  measure: 'Zerk aldatzen du odoleko entzima-jarduera?',
+  release: 'Noiz da aldaketa hori markatzaile erabilgarria?',
+  marker: 'Zein ehunetatik etor daiteke neurtutako entzima?',
+  tissues: 'Jarduera bera izateak lesio bera adierazten al du?',
+  intensity: 'Zer aldatzen da lagina beste une batean hartuz gero?',
+  kinetics: 'Amilasak eta lipasak denbora-patroi bera al dute?',
+  pancreas: 'Denboraz gain, zer esaten digu forma molekularrak?',
+  ck: 'Bi azpiunitatetik laura pasatzean, zenbat forma sor daitezke?',
+  ldh: 'Nola bereizten dira LDHren bost formak lagin batean?',
+  electro: 'Nola uztartu entzimen jatorria eta denbora infartuaren adibidean?',
+  infarct: 'Zein lau galderak ematen diote esanahia emaitzari?',
+  end: 'Zein iturritan oinarritu dira azalpenak eta 3D egiturak?'
+};
+
+const MODE = { fade: 0, dive: 1, flow: 2, cells: 3, drop: 4, lenses: 5, register: 6 };
+const DUR = { fade: .45, dive: 1.45, flow: 1.35, cells: 1.5, drop: 1.7, lenses: 1.8, register: 1.55 };
+const CHAPTER_DUR = 2.35;   // chapter bridges are a little longer: the title card needs a beat to be read
 const A_SCALE = [.5, .56];  // outgoing target resolution vs the canvas, per quality level
 
 const VERT = `precision highp float;
@@ -67,6 +84,39 @@ void main(){
   vec3 col;
   if (uMode < .5) {                                           // ---- fade
     col = mix(sampA(uv), sampB(uv, uFB), smoothstep(0., 1., p));
+  } else if (uMode > 5.5) {
+    // Anchor-to-anchor match: the shared specimen travels to its new composition.
+    // Soften the background first, then exchange the specimen at registration.
+    float move = smoothstep(0.,1.,p);
+    vec2 centre = mix(uFA,uFB,move);
+    vec2 delta = (uv-centre)*asp;
+    float peripheral = smoothstep(.05,.47,length(delta));
+    float handover = smoothstep(.32,.73,p + .15*peripheral);
+    vec2 from = uFA+(uv-centre)/uZA, to = uFB+(uv-centre)/uZB;
+    // Rigid registration preserves the geometry of the tissues and the tubes.
+    // Extend each field's own background at the margin as the images travel.
+    vec3 old = texture2D(tA, cl(from)).rgb;
+    vec3 fresh = texture2D(tB, cl(to)).rgb;
+    col = mix(old,fresh,handover);
+  } else if (uMode > 4.5) {
+    // Two optical fields briefly magnify the incoming fold; their rims meet
+    // and retreat to reveal the full set of five isoenzymes.
+    float arrival = smoothstep(.12, .72, p);
+    vec2 centre = mix(uFA, uFB, arrival);
+    vec2 xy = (uv - centre) * asp;
+    float offset = mix(.19, 0., smoothstep(.25, .74, p));
+    vec2 left = xy + vec2(offset, 0.), right = xy - vec2(offset, 0.);
+    float blend = smoothstep(-.055, .055, xy.x);
+    vec2 local = mix(left, right, blend);
+    float radius = mix(-.024, .23, smoothstep(.02, .40, p)) + 1.82 * smoothstep(.42, 1., p);
+    float edge = mix(length(left), length(right), blend) - radius;
+    vec2 normal = local / max(length(local), .001) / asp;
+    float rim = exp(-abs(edge) * 100.) * smoothstep(.02, .16, p) * (1. - smoothstep(.75, .97, p));
+    vec2 refracted = uv - local / asp * (.30 * (1. - arrival));
+    vec3 fresh = glassB(refracted, centre, normal, rim * .018);
+    col = mix(sampA(uv + normal * rim * .009), fresh, 1. - smoothstep(-.007, .007, edge));
+    float glint = pow(max(0., dot(normalize(local + vec2(.00001)), vec2(-.6, .8))), 3.);
+    col = mix(col, mix(uTint, vec3(1.), .72), rim * (.22 + .60 * glint));
   } else if (uMode > 3.5) {
     // Match the sample to the well. A travelling bead becomes a spreading meniscus.
     float fly=smoothstep(.08,.58,p), impact=smoothstep(.48,1.,p);
@@ -194,6 +244,12 @@ const _v = new THREE.Vector3(), _d = new THREE.Vector3(), _sv = new THREE.Vector
 
 export class Bridge {
   constructor(stage) {
+    this.stage = stage;
+    this.question = document.createElement('div');
+    this.question.className = 'bridge-question';
+    this.question.hidden = true;
+    stage.appendChild(this.question);
+    this.questionEnd = 0;
     this.rtA = null; this.samples = -1; this.bw = 1; this.bh = 1; this.pr = 1;
     this.mat = new THREE.RawShaderMaterial({
       uniforms: {
@@ -215,7 +271,19 @@ export class Bridge {
     this.cRule = this.card.querySelector('.cc-rule'); this.cDots = this.card.querySelector('.cc-dots');
     this.cDots.innerHTML = CHAPTERS.map(() => '<i></i>').join('');
   }
+  clearQuestion() {
+    this.question.hidden = true;
+    this.stage.classList.remove('has-bridge-question');
+    this.questionEnd = 0;
+  }
+  updateQuestion(t) {
+    if (!this.questionEnd) return;
+    const opacity = smooth(clamp((t-this.questionStart)/.2)) * smooth(clamp((this.questionEnd-t)/.38));
+    this.question.style.opacity = opacity.toFixed(3);
+    if (t >= this.questionEnd) this.clearQuestion();
+  }
   setSize(pr) {
+    if (this.active) this.active.outgoingCaptured = false;
     this.pr = pr;
     const s = new THREE.Vector2(); renderer.getDrawingBufferSize(s); this.bw = s.x; this.bh = s.y;
     const sc = A_SCALE[quality.level ? 1 : 0], samples = quality.level ? Math.min(4,renderer.capabilities.maxSamples) : 0;
@@ -246,21 +314,35 @@ export class Bridge {
     const mode = MODE[decl.mode] != null ? decl.mode : 'fade';
     this.mat.uniforms.uTint.value.set(CHAPTER_TINT[to.chapter] || '#d6a956');
     const dur = chapter >= 0 ? CHAPTER_DUR : DUR[mode] * (decl.speed || 1);
+    this.clearQuestion();
+    if (forward && QUESTIONS[from.id]) {
+      this.question.textContent = QUESTIONS[from.id];
+      this.questionStart = t;
+      this.questionEnd = t + dur + 2.4;
+      this.question.style.opacity = 0;
+      this.question.hidden = false;
+      this.stage.classList.add('has-bridge-question');
+    }
     this.active = { from, to, mode, decl, dur, t0: t, p: 0, chapter, onReveal, revealed: false,
       reveal: chapter >= 0 ? .84 : mode === 'fade' ? .3 : mode === 'dive' ? .58 : .5, fa: { uv: new THREE.Vector2(.5, .5), px: [W / 2, H / 2] }, fb: { uv: new THREE.Vector2(.5, .5), px: [W / 2, H / 2] },
       wa: new THREE.Vector3(), wb: new THREE.Vector3(), dir: new THREE.Vector2(...(decl.dir || [1, 0])).normalize() };
     for (const l of [from.layer, to.layer]) { l.style.transition = 'none'; l.style.willChange = 'opacity, transform'; }
     to.layer.style.opacity = 0;
     if (chapter >= 0) {
-      this.cNum.textContent = chapter + 1; this.cName.textContent = CHAPTERS[chapter];
+      this.card.classList.toggle("registered", mode === "register");
+      this.cNum.textContent = String(chapter + 1).padStart(2, '0');
+      const words = CHAPTERS[chapter].split(' ');
+      const last = document.createElement('em');
+      last.textContent = words.pop();
+      this.cName.replaceChildren(words.length ? words.join(' ') + ' ' : '', last);
       [...this.cDots.children].forEach((d, i) => d.classList.toggle('on', i <= chapter));
       this.card.style.display = 'block';
     }
   }
   // finish now: the incoming slide takes over the normal render path from the next frame on
-  finish() {
+  finish(reveal = true) {
     const A = this.active; if (!A) return; this.active = null;
-    if (!A.revealed && A.onReveal) A.onReveal();
+    if (reveal && !A.revealed && A.onReveal) A.onReveal();
     for (const l of [A.from.layer, A.to.layer]) { l.style.transition = ''; l.style.opacity = ''; l.style.transform = ''; l.style.transformOrigin = ''; l.style.willChange = ''; }
     A.from.layer.style.visibility='hidden'; A.from.layer.classList.remove('out');
     this.card.style.display = 'none';
@@ -285,11 +367,22 @@ export class Bridge {
   }
 
   // one bridge frame: update both slides, render both, composite to the canvas, move the DOM layers
-  frame(dt, t) {
+  frame(dt, t, draw = true) {
     const A = this.active, { from, to, mode } = A;
     const p = A.p = clamp((t - A.t0) / A.dur);
-    from.update && from.update(dt, t);
+    // Registration moves the image in screen space. Keep the outgoing cell in its
+    // last pose while the live release mechanism takes over on the other side.
+    const holdOutgoing = mode === 'register' || mode === 'fade' || (mode === 'dive' && p >= .9);
+    const drawOutgoing = !holdOutgoing || !A.outgoingCaptured;
+    if (drawOutgoing && from.update) from.update(dt, t);
     to.update && to.update(dt, t);
+    if (!draw) {
+      // Offline seeking advances the simulation and typography for every step.
+      // Only the requested display frame needs textures or camera composites.
+      if (!A.revealed && p >= A.reveal) { A.revealed = true; A.onReveal?.(); }
+      if (p >= 1) this.finish();
+      return;
+    }
     this.focus(from, A.decl, A.wa, A.fa);
     this.focus(to, to.bridgeIn, A.wb, A.fb);
     const hi = quality.level ? 1 : 0, u = this.mat.uniforms;
@@ -299,15 +392,22 @@ export class Bridge {
     if (mode === 'dive') {
       const k = clamp(p / .86); da = .8 * k * k; db = .62 * (1 - smooth(clamp((p - .08) / .92)));
       za = 1 + .25 * k * k; zb = 1 + .18 * (1 - ease.out(p)); blur = hi ? .07 * k : .04 * k;
+    } else if (mode === 'register') {
+      const ratio = A.decl.scaleRatio || 1;
+      za = Math.pow(ratio, smooth(p));
+      zb = za / ratio;
     } else if (mode === 'drop') { da=.36*smooth(clamp(p/.6)); db=.32*(1-smooth(clamp((p-.40)/.60))); }
     else if (mode === 'flow') { da = .18 * ease.in(p); db = .14 * (1 - ease.out(p)); }
     else if (mode === 'cells') { da = .1 * p; db = .16 * (1 - ease.out(p)); zb = 1 + .05 * (1 - p); }
 
     // ---- outgoing: plain render into its own target (no bloom: it is moving and dissolving)
-    const ca = from.camera; _sv.copy(ca.position); ca.position.lerp(A.wa, da); ca.updateMatrixWorld();
-    U.pxScale.value = (this.rtA.height) / (2 * Math.tan(THREE.MathUtils.degToRad(ca.fov) / 2));
-    renderer.setRenderTarget(this.rtA); renderer.clear(); renderer.render(from.scene, ca);
-    ca.position.copy(_sv); ca.updateMatrixWorld();
+    if (drawOutgoing) {
+      const ca = from.camera; _sv.copy(ca.position); ca.position.lerp(A.wa, da); ca.updateMatrixWorld();
+      U.pxScale.value = this.rtA.height / (2 * Math.tan(THREE.MathUtils.degToRad(ca.fov) / 2));
+      renderer.setRenderTarget(this.rtA); renderer.clear(); renderer.render(from.scene, ca);
+      ca.position.copy(_sv); ca.updateMatrixWorld();
+      A.outgoingCaptured = true;
+    }
     // ---- incoming: the normal composer path (bloom), stopping before the output pass
     const cb = to.camera; _sv.copy(cb.position); cb.position.lerp(A.wb, db); cb.updateMatrixWorld();
     U.pxScale.value = (H * this.pr) / (2 * Math.tan(THREE.MathUtils.degToRad(cb.fov) / 2));
@@ -324,7 +424,7 @@ export class Bridge {
     u.uP.value = p; u.uMode.value = MODE[mode]; u.uT.value = t; u.uHi.value = hi;
     u.uZA.value = za; u.uZB.value = zb; u.uBlur.value = blur; u.uFA.value.copy(A.fa.uv); u.uFB.value.copy(A.fb.uv); u.uDir.value.copy(A.dir);
     u.uCells.value = A.decl.cells || 6.5; u.toneMappingExposure.value = renderer.toneMappingExposure;
-    u.uVeil.value = A.chapter >= 0 ? smooth(clamp((p - .33) / .14)) * (1 - smooth(clamp((p - .72) / .12))) : 0;
+    u.uVeil.value = A.chapter >= 0 && mode !== "register" ? smooth(clamp((p - .13) / .17)) * (1 - smooth(clamp((p - .73) / .13))) : 0;
     this.composite(hi);
 
     this.layers(A, p);
@@ -348,12 +448,13 @@ export class Bridge {
 
   // chapter card: number + rule + name sweep in, hold, and sweep out to the left while the new scene settles
   chapterCard(p) {
-    const a = ease.out(clamp((p - .35) / .14)), b = ease.in(clamp((p - .72) / .11));
-    const x = (1 - a) * 70 - b * 110;
-    this.card.style.opacity = (a * (1 - b)).toFixed(3);
-    this.cNum.style.transform = `translate(${(x * 1.4).toFixed(1)}px, ${((1 - a) * 40).toFixed(1)}px)`;
-    this.cName.style.transform = `translate(${x.toFixed(1)}px, ${((1 - ease.out(clamp((p - .37) / .15))) * 105).toFixed(1)}%)`;
-    this.cRule.style.transform = `translateX(${(x * .6).toFixed(1)}px) scaleX(${(ease.out(clamp((p - .2) / .3)) * (1 - b)).toFixed(3)})`;
-    this.cDots.style.transform = `translateX(${(x * .8).toFixed(1)}px)`;
+    const enter = ease.out(clamp((p - .17) / .20));
+    const leave = smooth(clamp((p - .74) / .12));
+    const title = ease.out(clamp((p - .20) / .23));
+    this.card.style.opacity = (enter * (1 - leave)).toFixed(3);
+    this.cNum.style.transform = `translateY(${18 * (1 - enter) - 12 * leave}%)`;
+    this.cName.style.transform = `translateY(${98 * (1 - title) - 16 * leave}%)`;
+    this.cRule.style.transform = `scaleY(${enter * (1 - leave)})`;
+    this.cDots.style.opacity = title;
   }
 }

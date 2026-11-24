@@ -36,6 +36,24 @@ export function coronarySection(scene) {
     pose.updateMatrix();clot.setMatrixAt(i,pose.matrix);
     tone.setHSL(.974+.018*Math.sin(a),.30,.40+.12*Math.cos(a*1.7));clot.setColorAt(i,tone);
   }
+  // Fibrous surface of the aggregate, following its curved outline in the open section.
+  const strands = [];
+  for (let i = 0; i < 22; i++) {
+    const tilt = (i % 2 ? 1 : -1) * .55, offset = (Math.floor(i/2)-5)/6;
+    let previous = null;
+    for (let j=0;j<=24;j++) {
+      const x=(j-12)/12, y=offset+tilt*x, radius=x*x+y*y;
+      if (radius>.96) { previous=null; continue; }
+      const current = [.47*x,.46+.40*y,.27*Math.sqrt(1-radius)+.028*Math.sin(i+j*.8)];
+      if (previous) strands.push(...previous,...current);
+      previous=current;
+    }
+  }
+  const fibreGeo=new THREE.BufferGeometry();
+  fibreGeo.setAttribute('position',new THREE.Float32BufferAttribute(strands,3));
+  clot.add(new THREE.LineSegments(fibreGeo,new THREE.LineBasicMaterial({
+    color:'#deaca1',transparent:true,opacity:.71,depthWrite:false
+  })));
   clot.position.set(.06,-.46,0);
   // The tube is shown obliquely so the ring at each end and the three cut layers can be read.
   wall.rotation.set(-.13,.22,-.11);
@@ -50,7 +68,7 @@ export function coronarySection(scene) {
     group.visible=visibility>.004;
     if(!group.visible)return;
     group.position.set(2.02,-.04-.15*(1-visibility),0);
-    group.scale.setScalar(.92*visibility);
+    group.scale.setScalar(1.04*visibility);
     const oc=ease.io(clamp(occlusion));
     clot.visible=oc>.015;clot.scale.set(.68+.32*oc,oc,.2+.8*oc);
     const open=1-oc;

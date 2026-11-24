@@ -37,7 +37,7 @@ export function pancreasSDF(x, y, z) {
 
 export function pancreasParts() {
   const geo = surfaceNets(pancreasSDF, V(-.9, -.42, -.22), V(.98, .62, .22), .013);
-  const duct = new THREE.TubeGeometry(new THREE.CatmullRomCurve3(DUCT, false, 'centripetal'), 90, .022, 10, false);
+  const duct = new THREE.TubeGeometry(new THREE.CatmullRomCurve3(DUCT, false, 'centripetal'), 90, .032, 10, false);
   const duo = new THREE.TubeGeometry(new THREE.CatmullRomCurve3([V(-.42, .46, -.02), V(-.72, .43, 0), V(-.95, .24, 0), V(-1.0, -.06, 0), V(-.93, -.36, 0), V(-.68, -.5, 0), V(-.36, -.48, 0), V(-.08, -.36, -.02), V(.08, -.24, -.04)], false, 'centripetal'), 120, .1, 22, false);
   // gentle circular folds on the duodenum
   const p = duo.attributes.position, n = duo.attributes.normal;

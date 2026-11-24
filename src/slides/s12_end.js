@@ -10,13 +10,10 @@ import { el } from '../chart.js';
 const _bf = new THREE.Vector3(); // scratch vector for the bridge focus
 
 const TUBE_Y = -2.08, TUBE_S = 1.05; // cap top kept clear of the title descenders
-// leader-line anchors on the tube (tube-local units, not rotating with the sway): plasma above, the label below
-const ANCH = [[-.42, 2.45], [.42, 2.1], [-.48, 1.25], [.48, 1.0]];
-
 export default {
   id: 'end', chapter: 4, beats: 2, title: 'Ondorioak', bloom: .55,
   bridgeIn: { focus() { const p = this.tb.plasma; return this.tb.group.localToWorld(_bf.set(0, (p.y0 + p.y1) / 2, 0)); } },
-  bridge: { mode: 'flow', dir: [0, -1], speed: 1.15 },
+  bridge: { mode: 'register', scaleRatio:.40, focus() { return this.tb.group.localToWorld(_bf.set(0,1.9,0)); } },
   build(layer) {
     const S = makeScene({ glow: '#FFF6E8', gx: .5, gy: .52, dust: 120 }); this.S = S; this.scene = S.scene; this.camera = S.camera;
     this.rig = new CamRig(this.camera, V(0, .4, 11), V(0, .1, 0), { fov: 34, drift: .05 });
@@ -58,11 +55,11 @@ export default {
       const card = add(layer, `<div class="closing-question abs fx d${i + 1}" data-b="-0" style="left:${x}px;top:${y}px;--question:${c}">
         <h4>${q}</h4><p>${a}</p></div>`);
       const g = el('g', { 'data-b': '-0', class: 'fx fade' }, svg);
-      const path = el('path', { fill: 'none', stroke: c, 'stroke-width': 2.2, 'stroke-linecap': 'round', opacity: .75 }, g);
+      const path = el('path', { fill: 'none', stroke: c, 'stroke-width': 3.3, 'stroke-linecap': 'round', opacity: .75 }, g);
       const ring = el('circle', { r: 9, fill: 'none', stroke: alpha(c, .35), 'stroke-width': 2 }, g);
       const dot = el('circle', { r: 4.5, fill: c, stroke: '#fff', 'stroke-width': 1.5 }, g);
       const tail = el('circle', { r: 4, fill: c }, g);
-      this.leads.push({ card, path, dot, ring, tail, left: x < 900, x, y, a: V(ANCH[i][0], ANCH[i][1], .3), sy: 0, key: '' });
+      this.leads.push({ card, path, dot, ring, tail, left: x < 900, x, y, specimen: this.objects[i], order:i, sy: 0, key: '' });
     });
     add(layer, `<div class="key c" data-b="-0" style="bottom:110px;font-size:32px;color:var(--ink2)">Jatorria · magnitudea · denbora · testuingurua → <em>interpretazioa</em></div>`);
     add(layer, `<div class="farewell-credit abs fx d1" data-b="1">Oinarrizko Biokimika <b>/</b> B.1 atala</div>`);
@@ -91,16 +88,18 @@ export default {
       object.position.set(x + (3.35 + side * 1.78 - x) * o,
         y + (.15 + row * 1.43 + drift - y) * o, .18 + .1 * o);
       object.rotation.y = .20 * Math.sin(t * .45 + i);
-      object.scale.setScalar(ease.spring(clamp((this.age - i * .22) / .9)) * (1.22 + o * .30));
+      object.scale.setScalar(ease.spring(clamp((this.age - i * .22) / .9)) * (1.40 + o * .22));
     });
     if(o>.01){this.traceTick-=dt;if(this.traceTick<=0){this.trace.pulse();this.traceTick=1.26;}this.trace.update(dt,t);}
-    // leader lines: card inner edge -> tube anchor (re-projected each frame so they stay glued to the tube)
-    const L = this.lead.v;
-    if (o >= .999 && L <= .001) return;
+    // Each question points to its corresponding specimen while the summary assembles.
+    const lead = this.lead.v;
+    if (o >= .999 && lead <= .001) return;
     for (const ld of this.leads) {
       if (!ld.sy && ld.card.offsetHeight) ld.sy = ld.y + ld.card.offsetHeight / 2;
       const sx = ld.left ? ld.x + 534 + 14 : ld.x - 14, sy = ld.sy || ld.y + 80;
-      this.wv.set(ld.a.x * TUBE_S, TUBE_Y + ld.a.y * TUBE_S, ld.a.z);
+      const L = ease.io(clamp((lead - ld.order*.06) / .82));
+      ld.specimen.getWorldPosition(this.wv);
+      this.wv.x += ld.left ? -.22 : .22;
       const s = screenOf(this.wv, this.camera);
       const ex = sx + (s.x - sx) * L, ey = sy + (s.y - sy) * L, mx = sx + (ex - sx) * .55;
       const d = `M${sx.toFixed(1)} ${sy.toFixed(1)} C${mx.toFixed(1)} ${sy.toFixed(1)} ${mx.toFixed(1)} ${ey.toFixed(1)} ${ex.toFixed(1)} ${ey.toFixed(1)}`;

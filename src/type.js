@@ -66,7 +66,12 @@ function prepare(el) {
         return { w, i: w.firstChild, k: mode === 'lines' ? line * .08 : i * .035 };
       });
       r.span = r.parts[r.parts.length - 1].k;
-      el.classList.add('tsplit');
+      if (mode === 'lines' && line === 0) {
+        // All words enter together. Composite one heading instead of a mask per word.
+        for (const word of words) word.replaceWith(...word.firstChild.childNodes);
+        r.parts = null;
+        r.mode = 'fx';
+      } else el.classList.add('tsplit');
     }
   }
   if (mode === 'count') {

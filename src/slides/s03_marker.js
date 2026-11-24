@@ -29,7 +29,7 @@ const CSS = `<style>
 .mk-panel p{margin:0;font:400 30px/1.38 var(--sans);color:var(--ink2);max-width:600px}
 .mk-panel .key{position:static;margin-top:44px;font:italic 400 32px/1.3 var(--serif);color:var(--ink);text-shadow:none;max-width:560px}
 .mk-bar{display:grid;grid-template-columns:232px 1fr;gap:16px;align-items:center;font:600 24px/1 var(--sans);color:var(--ink2);margin-top:20px}
-.mk-bar i{display:block;height:22px;border-radius:11px;background:${PAL.gold};width:0;transition:width 1.2s cubic-bezier(.3,0,.2,1)}
+.mk-bar i{display:block;height:22px;border-radius:11px;background:${PAL.gold};width:100%;transform:scaleX(0);transform-origin:left;transition:transform 1.2s cubic-bezier(.3,0,.2,1)}
 </style>`;
 
 // screen px -> world (z = 0) for the fixed camera at z = 10, fov 40
@@ -44,6 +44,7 @@ const bez = (o, a, b, c, k) => { const u = 1 - k; return o.set(u * u * a.x + 2 *
 export default {
   id: 'marker', chapter: 1, beats: 6, title: 'Markatzaile entzimatiko on bat', bloom: .6,
   // the glass body of beat 6 match-cuts into the glass body of the tissues slide
+  bridgeIn: { focus() { return this.E.group.getWorldPosition(_bf); } },
   bridge: { mode: 'dive', focus() { return this.B.group.localToWorld(_bf.set(0, .05, 0)); } },
   build(layer) {
     const S = makeScene({ gx: .5, gy: .5, dust: 90 }); this.S = S; this.scene = S.scene; this.camera = S.camera;
@@ -155,7 +156,7 @@ export default {
     this.bodyK.to(b === 5 ? 1 : 0, instant ? 0 : 1.2, b === 5 ? ease.out : ease.in);
     if (b === 5 && this.t5 == null) this.t5 = -1; // restart the docking cycle on arrival
     if (b !== 5) this.t5 = null;
-    this.barEls.forEach((e, i) => { e.style.transitionDelay = b === 5 ? (.5 + i * .15) + 's' : '0s'; e.style.width = b === 5 ? (ALT[e.dataset.k] * 100).toFixed(0) + '%' : '0'; });
+    this.barEls.forEach((e, i) => { e.style.transitionDelay = b === 5 ? (.5 + i * .15) + 's' : '0s'; e.style.transform = 'scaleX(' + (b === 5 ? ALT[e.dataset.k] : 0) + ')'; });
   },
   // place one moving piece (enzyme-local) with a scale
   put(m, p, s) { m.position.copy(p); m.scale.setScalar(Math.max(.001, s)); m.visible = s > .002; },

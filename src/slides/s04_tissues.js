@@ -44,8 +44,8 @@ function glassMat(side, k) {
 export default {
   id: 'tissues', chapter: 1, beats: 8, title: 'Entzimen ehun-espezifikotasuna', bloom: .5,
   bridgeIn: { focus() { return this.root.localToWorld(_bf.set(0, .05, 0)); } },
-  // dive into the liver: the next slide is a piece of injured tissue
-  bridge: { mode: 'dive', focus() { const m = this.O.liver.mesh, g = m.geometry; if (!g.boundingSphere) g.computeBoundingSphere(); return m.localToWorld(_bf.copy(g.boundingSphere.center)); } },
+  // Leave from the current source organ to the tissue comparison.
+  bridge: { mode: 'dive', focus() { const source = ENZ[this.cur]?.org[0] || 'liver'; const m = this.O[source].mesh, g = m.geometry; if (!g.boundingSphere) g.computeBoundingSphere(); return m.localToWorld(_bf.copy(g.boundingSphere.center)); } },
   build(layer) {
     const S = makeScene({ glow: '#EEF4FB', gx: .45, gy: .5, dust: 80 }); this.S = S; this.scene = S.scene; this.camera = S.camera;
     this.shot = [V(.42, .23, 7.8), V(.42, .2, 0), 38]; // framed so the tube ends above the y = 970 safe line
@@ -98,7 +98,7 @@ export default {
     this.plasmaBase = tb.plasmaMat.uniforms.uC.value.clone(); this.plasmaTo = this.plasmaBase.clone();
 
     // ---- molecules on their way
-    this.pts = new Pts(NP); this.pts.mesh.renderOrder = 5; root.add(this.pts.mesh);
+    this.pts = new Pts(NP * 2); this.pts.mesh.renderOrder = 5; root.add(this.pts.mesh);
     this.P = Array.from({ length: NP }, () => ({ live: false, s: 0, sp: 1, w: 0, site: null, col: null, ox: 0, oy: 0, oz: 0 }));
     this.nextP = 0; this.Rn = rng(5); this.cur = -1;
 
@@ -106,6 +106,7 @@ export default {
     add(layer, `<div class="eyebrow"><b>2</b>Igoeraren jatorria</div>`);
     add(layer, `<div class="h1">Entzimen <em>ehun-espezifikotasuna</em></div>`);
     const index = add(layer, '<div class="atlas-index"></div>');
+    this.indexGuide = add(index, '<div class="atlas-guide" aria-hidden="true"></div>');
     this.chips = ENZ.map(e => add(index, `<div class="atlas-row" style="--enzyme:${e.c}">
       <span class="atlas-name">${e.k}</span>
       <span class="atlas-sites">${e.org.map(() => '<i></i>').join('')}</span></div>`));
@@ -142,7 +143,7 @@ export default {
     this.rig.go(V(x+.04,y+.035,e ? 6.43 : 7.4),V(x,y,0),2.25,38); this.mediumAt=e ? 2.8 : 0;
     for (const k in this.O) { const o = this.O[k]; const on = !!(e && e.org.includes(k));
       o.on = on; o.target.copy(on ? (k === 'rbc' ? o.nat : C(b - 1 === AMY && k === 'saliva' ? COL3.amber : e.c3)) : e ? DIM : o.nat);   // red cells stay red
-      o.op.to(HIDDEN.includes(k) ? (on ? 1 : 0) : on ? 1 : e ? .3 : .92, d); o.em.to(on ? .32 : 0, d); o.acc = 0;
+      o.op.to(HIDDEN.includes(k) ? (on ? 1 : 0) : on ? 1 : e ? .17 : .92, d); o.em.to(on ? .32 : 0, d); o.acc = 0;
       for (const s of o.sites) s.halo.material.color.copy(o.target);
       if (instant) o.col.copy(o.target); }
     for (const p of this.P) p.live = false;
@@ -152,6 +153,9 @@ export default {
     if (e) this.labs.saliva.el.querySelector('.t').innerHTML = b - 1 === AMY ? 'Listu-guruinak<small>amilasa</small>' : 'Listu-guruinak';
     for (const k in this.labs) this.lead(this.labs[k], (LEAD[b] || {})[k]);
     for (const k in this.labs) this.labs[k].el.style.color = e ? (b - 1 === AMY && k === 'saliva' ? COL.amber : e.c) : '#5d7fae';
+    this.indexGuide.style.opacity = e ? 1 : 0;
+    this.indexGuide.style.transform = `translateY(${Math.max(0,b-1)*74}px)`;
+    if (e) this.indexGuide.style.color = e.c;
     this.chips.forEach((row, i) => {
       row.classList.toggle('selected', i === b - 1);
       row.classList.toggle('visited', i < b);
@@ -198,13 +202,18 @@ export default {
     for (let i = 0; i < NP; i++) {
       const p = this.P[i];
       if (p.live) { p.s += p.sp * dt; if (p.s >= p.site.route.len) { p.live = false; this.arrive(p.col); } }
-      if (!p.live) { pts.set(i, 0, 0, 0, 0, DIM, 0); continue; }
+      if (!p.live) { pts.set(i, 0, 0, 0, 0, DIM, 0); pts.set(NP+i,0,0,0,0,DIM,0); continue; }
       const r = p.site.route, u = p.s / r.len * (r.n - 1), j = Math.min(r.n - 2, Math.floor(u)), f = u - j, a = r.a;
       const w = Math.max(0, 1 - p.s / .3), ww = w * w;
       const x = a[j * 3] + (a[j * 3 + 3] - a[j * 3]) * f + p.ox * ww + Math.sin(t * 6 + p.w) * .006;
       const y = a[j * 3 + 1] + (a[j * 3 + 4] - a[j * 3 + 1]) * f + p.oy * ww;
       const z = a[j * 3 + 2] + (a[j * 3 + 5] - a[j * 3 + 2]) * f + p.oz * ww + .01;
-      pts.set(i, x, y, z, .094, p.col, Math.min(1, p.s * 8) * (1 - clamp((p.s - r.len + .12) / .12) * .6));
+      // A smaller tail on the same route gives each moving sample a direction.
+      const back = Math.max(0,u - 2.2), ib = Math.min(r.n-2, Math.floor(back))*3, fb = back - ib/3;
+      pts.set(NP+i, a[ib]+(a[ib+3]-a[ib])*fb+p.ox*ww,
+        a[ib+1]+(a[ib+4]-a[ib+1])*fb+p.oy*ww,
+        a[ib+2]+(a[ib+5]-a[ib+2])*fb+p.oz*ww+.01,.069,p.col,.42*clamp(p.s*5));
+      pts.set(i, x, y, z, .115, p.col, Math.min(1, p.s * 8) * (1 - clamp((p.s - r.len + .12) / .12) * .6));
     }
     pts.commit();
     // the tube fills one blob per arriving molecule (and empties when the enzyme changes)

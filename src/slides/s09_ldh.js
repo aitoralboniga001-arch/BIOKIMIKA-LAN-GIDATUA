@@ -1,17 +1,17 @@
 // 9 · LDH: four subunits (H, M) → five tetramers. H and M associate at random, so a tissue's subunit mix sets its
 // isoenzyme pattern (binomial p⁴ … q⁴): H-rich tissues give LDH1/LDH2, M-rich tissues LDH5. Haemolysis raises LDH artificially.
 import { THREE, Tw, add, ease, clamp, rng, Label } from '../core.js';
-import { makeScene, proteinMat, glassCylinder, fresnelMat, rbcGeo, rbcMat, Pts, C, contactShadow } from '../lib3d.js';
+import { makeScene, glassCylinder, fresnelMat, rbcGeo, rbcMat, Pts, C, contactShadow, halo } from '../lib3d.js';
 import { PAL, COL3, alpha } from '../theme.js';
 import { CamRig, V } from '../rig.js';
 import { icon } from '../icons.js';
-import { assemblySim, pin, mixBar, subunitGeo, faceIn } from './s08_s09_assembly.js';
+import { assemblySim, pin, mixBar } from './s08_s09_assembly.js';
+import { ribbonAssembly, dock } from './oligomer_ribbons.js';
 const _bf = new THREE.Vector3(); // scratch vector for the bridge focus
 
 const H3 = COL3.red, M3 = COL3.blue, HT = PAL.red, MT = PAL.blue;
 const COMP = [4, 3, 2, 1, 0]; // number of H subunits in LDH1..LDH5
 const XS = [-5.0, -2.5, 0, 2.5, 5.0];
-const RS = .4, TET = [V(1, 1, 1), V(1, -1, -1), V(-1, 1, -1), V(-1, -1, 1)].map(v => v.normalize().multiplyScalar(RS * 1.12));
 const HEMO = V(0, -11, 0);
 const COLX = [.4, 1.45, 2.5, 3.55, 4.6];
 // fraction of H subunits per beat (schematic)
@@ -28,19 +28,17 @@ export default {
     this.shots = [[V(0, .3, 13), V(0, .25, 0), 34], SIM, SIM, SIM, [V(.9, HEMO.y + .75, 10), V(.9, HEMO.y + .45, 0), 34]];
     this.rig = new CamRig(this.camera, this.shots[0][0], this.shots[0][1], { fov: 34, drift: .03 });
     // ---------------------------------------------------------------- beat 0: the five tetramers assemble
-    // four separate domains, contact faces toward the centre (same subunit look as the CK dimers)
-    const gH = subunitGeo(303, RS), gM = subunitGeo(101, RS);
-    const mH = proteinMat(H3, { glow: .05 }), mM = proteinMat(M3, { glow: .05 }); mH.vertexColors = mM.vertexColors = true;
     const R = rng(4);
     const intro = new THREE.Group(); this.scene.add(intro); this.introG = intro;
     this.tets = COMP.map((nH, i) => {
-      const g = new THREE.Group(); g.position.set(XS[i], .9, 0); intro.add(g);
-      const subs = TET.map((slot, j) => { const isH = j < nH; const m = new THREE.Mesh(isH ? gH : gM, isH ? mH : mM);
-        g.add(m);
-        const q0 = new THREE.Quaternion().setFromEuler(new THREE.Euler(R() * 6, R() * 6, R() * 6)), q1 = faceIn(new THREE.Quaternion(), [slot.x, slot.y, slot.z], j * 1.3);
-        return { m, slot, q0, q1, from: V((R() - .5) * 9, (R() - .5) * 7, (R() - .5) * 4).sub(g.position), delay: i * .18 + j * .1 + R() * .15 }; });
-      const sh = contactShadow({ size: 1.9, opacity: .13 }); sh.position.set(XS[i], -.25, 0); intro.add(sh);
-      return { g, subs };
+      // Choose front-facing sites for the minority chain in LDH2 and LDH4.
+      const colors = [1, 0, 3, 2].map(rank => rank < nH ? H3 : M3);
+      const model = ribbonAssembly('1I10', colors, 2.13, 2.04);
+      model.g.position.set(XS[i], .85, 0);
+      intro.add(model.g);
+      const shadow = contactShadow({ size: 2, opacity: .11 });
+      shadow.position.set(XS[i], -.22, 0); intro.add(shadow);
+      return model;
     });
     this.asm = new Tw(1); this.intro = new Tw(1);
     // ---------------------------------------------------------------- beats 1–3: random tetramer assembly
@@ -56,6 +54,10 @@ export default {
     for (let i = 0; i < 26; i++) { const m = new THREE.Mesh(rg, rm); const an = R() * 6.28, rr = Math.sqrt(R()) * 1.05; m.position.set(Math.cos(an) * rr, -1.3 + R() * 2.4, Math.sin(an) * rr); m.rotation.set(R() * 3, R() * 3, R() * 3); hg.add(m);
       this.rbcs.push({ m, burst: i % 3 === 0, at: (i / 3) * .45 + R() * .3, home: m.position.clone(), ph: R() * 6 }); }
     const bursters = this.rbcs.filter(r => r.burst);
+    for (const r of bursters) {
+      r.cloud = halo('#c5505a',.1,0);
+      hg.add(r.cloud);
+    }
     const section=new THREE.LatheGeometry(rg.parameters.points.filter((_,i)=>i%3===0),10,0,Math.PI*.61);
     this.shards=new THREE.InstancedMesh(section,rm,bursters.length*3);this.shards.frustumCulled=false;this.shards.count=0;hg.add(this.shards);
     this.shardPose=new THREE.Object3D();this.shardOffset=new THREE.Vector3();
@@ -63,7 +65,7 @@ export default {
     for (let i = 0; i < 260; i++) this.sp.push({ src: bursters[i % bursters.length], d: V(R() - .5, R() - .5, R() - .5).normalize().multiplyScalar(.3 + R() * .9), ph: R() * 6 });
     this.spillC = C(COL3.blue);
     this.hemo = new Tw(0);
-    this.meter = add(layer, `<div class="meter" data-b="4" style="left:1272px;top:300px;height:420px"><div class="ref" style="height:24%"></div><div class="fill" style="background:linear-gradient(0deg,${PAL.red},${alpha(PAL.red, .55)})"></div></div>`);
+    this.meter = add(layer, `<div class="meter ldh-meter" data-b="4" style="left:1272px;top:300px;height:420px"><div class="ref" style="height:24%"></div><div class="fill" style="background:linear-gradient(0deg,${PAL.red},${alpha(PAL.red, .55)})"></div></div>`);
     this.mfill = this.meter.querySelector('.fill');
     add(layer, `<div class="tag" data-b="4" style="left:1212px;top:740px;width:166px;text-align:center;color:var(--red)">LDH<small>plasman</small></div>`);
     add(layer, `<div class="note" data-b="4" style="left:1078px;top:636px;width:180px;text-align:right;font-size:22px;line-height:1.15">erreferentzia-<br>tartea</div>`);
@@ -79,9 +81,11 @@ export default {
     key('2-2', `<b style="color:${PAL.violet}">Ehun askotan</b>: H eta M nahastuta → <b>LDH2–LDH4</b>`);
     key('3-3', `<b style="color:${MT}">Gibela, hezur-muskulua</b>: M nagusi → <b>LDH5</b>`);
     const sx = XS.map(x => 960 + x / 7.0 * 960);
-    COMP.forEach((nH, i) => add(layer, `<div class="abs fx d${i + 1}" data-b="0-0" style="left:${sx[i] - 140}px;top:640px;width:280px;text-align:center">
-      <div style="font:700 38px/1 var(--sans);color:var(--ink)">LDH${i + 1}</div><div style="font:600 30px/1 var(--sans);margin-top:10px">${formula(nH)}</div></div>`));
+    COMP.forEach((nH, i) => add(layer, `<div class="abs fx d${i + 1}" data-b="0-0" style="left:${sx[i] - 140}px;top:616px;width:280px;text-align:center">
+      <div class="tetramer-key" aria-hidden="true">${[3, 2, 0, 1].map(j=>`<i style="background:${[1,0,3,2][j]<nH ? HT : MT}"></i>`).join('')}</div>
+      <div style="font:500 46px/1 var(--serif);letter-spacing:-.035em;color:var(--ink)">LDH${i + 1}</div><div style="font:600 30px/1 var(--sans);margin-top:10px">${formula(nH)}</div></div>`));
     add(layer, `<div class="note" data-b="0-0" style="left:0;right:0;top:820px;text-align:center;font-size:26px">LDH: piruvato + NADH ⇄ laktatoa + NAD⁺ · forma guztietan erreakzio bera</div>`);
+    add(layer, `<div class="structure-source" data-b="0-0">Egitura-eredua · LDH5 (PDB 1I10)<br>H/M konbinazioak kolorez adierazita</div>`);
     const TIS = [[[['heart', PAL.red], ['rbc', PAL.red]], 'Miokardioa · eritrozitoak', PAL.red], [[['tissue', PAL.violet]], 'Ehun askotan', PAL.violet], [[['liver', PAL.blue], ['muscle', PAL.blue]], 'Gibela · hezur-muskulua', PAL.blue]];
     const chipRow = add(layer, `<div class="abs" data-b="1-3" style="left:96px;top:300px;display:flex;gap:12px">${TIS.map(([ics, name, c]) => `<div style="box-sizing:border-box;display:flex;align-items:center;gap:6px;padding:5px 14px 5px 8px;border-radius:14px;border:1.5px solid ${alpha(c, .35)};background:rgba(255,255,255,.6);font:600 22px/1.1 var(--sans);white-space:nowrap;color:${c};opacity:.45;transition:opacity .5s,background .5s,border-color .5s">${ics.map(([n, cc]) => icon(n, 30, cc)).join('')}<span>${name}</span></div>`).join('')}</div>`);
     this.chips = [...chipRow.children]; this.chipC = TIS.map(t => t[2]);
@@ -97,11 +101,12 @@ export default {
   },
   enter(b) {
     const s = this.shots[b]; this.rig.arrive(s[0], s[1], s[2]);
-    this.asm.set(b === 0 ? 0 : 1); if (b === 0) this.asm.to(1, 4.2, ease.lin);
+    this.asm.set(b === 0 ? 0 : 1); if (b === 0) this.asm.to(1, 3.4, ease.lin, .70);
     this.hemo.set(0); if (b === 4) this.hemo.to(1, 5, ease.lin, .8);
     this.apply(b, true);
   },
   beat(b, dir) {
+    if (b === 0 && dir) this.asm.set(0).to(1, 3.4, ease.lin);
     const s = this.shots[b], prev = this.shots[this.b ?? b];
     if (s !== prev) this.rig.go(s[0], s[1], 2.2, s[2]);
     if (b === 4) this.hemo.set(0).to(1, 5, ease.lin, 1.4); else this.hemo.to(0, .3);
@@ -123,13 +128,7 @@ export default {
     const iv = this.intro.v; this.introG.visible = iv > .002;
     if (this.introG.visible) {
       this.introG.scale.setScalar(.5 + .5 * iv); this.introG.position.y = (1 - iv) * 1.4;
-      const k = this.asm.v;
-      this.tets.forEach((T, i) => {
-        T.g.rotation.y = t * .4 + i * .7; T.g.rotation.x = Math.sin(t * .35 + i) * .25;
-        const br = .02 * Math.sin(t * 1.2 + i * 1.3); // breathing: the four subunits open and close a little
-        T.subs.forEach(s => { const u = i===2 ? .86+.14*ease.out(k) : ease.out(clamp((k*4.2-s.delay)/1.6)); s.m.position.lerpVectors(s.from, s.slot, u).addScaledVector(s.slot, br * u / RS);
-          s.m.quaternion.slerpQuaternions(s.q0, s.q1, u); s.m.scale.setScalar(.2 + .8 * u); });
-      });
+      this.tets.forEach((model, i) => dock(model, this.asm.v, t, i));
     }
     // assembly simulation
     const sv = this.simOn.v, sg = this.sim.group; sg.visible = sv > .002;
@@ -145,6 +144,18 @@ export default {
         r.m.position.set(r.home.x + Math.sin(t * .5 + r.ph) * .06, r.home.y + Math.sin(t * .4 + r.ph) * .08, r.home.z);
         r.m.rotation.y += dt * .3; r.m.scale.setScalar(u < .6 ? 1 + u * .5 : Math.max(.001, (1 - u) * 3));
         r.m.visible = u < .54; burst += u;
+        if (r.cloud) {
+          const age = h*4.5 - r.at - .27;
+          r.cloud.visible = age >= 0 && age < 1.45;
+          if (r.cloud.visible) {
+            const k = age/1.45;
+            r.cloud.position.copy(r.home); r.cloud.position.y += .06*k;
+            const limit=Math.min(1.32-Math.hypot(r.home.x,r.home.z),1.45-Math.abs(r.home.y));
+            const span=Math.min(.19+.85*k, Math.max(.14,limit)*1.8);
+            r.cloud.scale.set(span,span*.87,1);
+            r.cloud.material.opacity=.60*Math.sin(Math.PI*k);
+          }
+        }
         if(u>=.54){
           const openness=(u-.54)/.46,age=Math.max(0,h*4.5-r.at-.5);
           for(let j=0;j<3&&age<.95;j++){
@@ -165,7 +176,7 @@ export default {
       const f = clamp(burst / 9);
       this.plasma.material.uniforms.uC.value.copy(this.plasmaC).lerp(this.hemoC, f * .85);
       const lvl = 60 + f * 300; // px; reference line at 24 % of 420 px ≈ 100 px
-      this.mfill.style.height = lvl + 'px';
+      this.mfill.style.transform = 'scaleY(' + Math.min(1, Math.max(0, lvl / 412)) + ')';
       this.fake.style.opacity = this.b === 4 && lvl > 104 ? 1 : 0; this.fake.style.top = (716 - lvl - 20).toFixed(1) + 'px';
     }
   },

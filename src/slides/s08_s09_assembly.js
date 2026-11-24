@@ -139,7 +139,11 @@ export function assemblySim(parent, {
     fill.scale.y = .001;
     const ring = new THREE.Line(ringGeo, ringMat); ring.computeLineDistances(); cg.add(ring);
     const glow = halo(COL3.coral, 1, 0); glow.scale.set(colR * 5, colH * 1.5, 1); glow.position.set(0, colH / 2, -.4); cg.add(glow);
-    return { x, g: cg, fill, ring, glow, share: 0, hi: 0 };
+    // The receiving surface briefly ripples where the newly assembled molecule lands.
+    const impact = new THREE.Mesh(new THREE.RingGeometry(.75,1,32),
+      new THREE.MeshBasicMaterial({color:'#fff5d9',side:THREE.DoubleSide,transparent:true,depthWrite:false}));
+    impact.rotation.x=-Math.PI/2; impact.visible=false; cg.add(impact);
+    return { x, g: cg, fill, ring, glow, impact, impactAge:1, share: 0, hi: 0 };
   });
   // ---------------------------------------------------------------- oligomers in flight
   const olig = [];
@@ -196,6 +200,7 @@ export function assemblySim(parent, {
   const tmp = new THREE.Vector3(), m4 = new THREE.Matrix4(), q = new THREE.Quaternion(), sc = new THREE.Vector3(), eu = new THREE.Euler(), _Y = new THREE.Vector3(0, 1, 0);
   function absorb(o) {
     if (o.gen < 0) return; // settled while in flight: lands visually but no longer counts
+    columns[o.j].impactAge = 0;
     const a = o.gen === gen ? Math.max(1 / win, 1 / (nNew++ + K0)) : 1 / win; for (let k = 0; k < nf; k++) est[k] = est[k] * (1 - a) + (k === o.j ? a : 0);
   }
   const api = {
@@ -204,7 +209,10 @@ export function assemblySim(parent, {
     // set the first-kind fraction; instant = jump straight to the expected mix (used when landing on a beat)
     setP(np, instant = false) {
       p = np; shares = binomialShares(p, size); setKinds(instant); gen++; nNew = 0;
-      columns.forEach((c, j) => c.ring.position.y = shares[j] * colH);
+      columns.forEach((c, j) => {
+        c.ring.position.y = shares[j] * colH;
+        if (instant) { c.impactAge = 1; c.share = shares[j]; }
+      });
       if (instant) { nNew = win; for (let k = 0; k < nf; k++) est[k] = shares[k]; olig.length = 0; for (const s of S) { if (s.st) { s.st = 0; rndPos(s.home); s.p.copy(s.home); } } }
     },
     // jump the running estimate to the expected mix without touching the subunits (used when the pool is off screen);
@@ -253,6 +261,13 @@ export function assemblySim(parent, {
       columns.forEach((c, j) => {
         c.share += (est[j] - c.share) * (1 - Math.exp(-dt * 7));
         c.fill.scale.y = Math.max(.001, c.share * colH); c.fill.visible = c.share > .006;
+        c.impactAge = Math.min(1,c.impactAge+dt*2.7);
+        c.impact.visible = c.impactAge < 1 && c.fill.visible;
+        if (c.impact.visible) {
+          c.impact.position.y = c.fill.scale.y + .018;
+          c.impact.scale.setScalar(colR*(.18+.7*c.impactAge));
+          c.impact.material.opacity = .82*(1-c.impactAge);
+        }
         c.hi += ((c.hiT || 0) - c.hi) * (1 - Math.exp(-dt * 4));
         c.glow.material.opacity = c.hi * (.45 + .1 * Math.sin(t * 3));
       });

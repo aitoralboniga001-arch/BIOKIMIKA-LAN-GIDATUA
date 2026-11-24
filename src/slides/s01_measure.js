@@ -30,7 +30,7 @@ const CW = 430, CH = 210, YMAX = 72;     // chart size (px) and product scale (m
 export default {
   id: 'measure', chapter: 0, beats: 4, title: 'Zer neurtzen du laborategiak?', bloom: .5,
   bridgeIn: { focus() { return this.hdl.group.getWorldPosition(_bf); } },              // lands on the HDL particle (plasma enzymes)
-  bridge: { mode: 'dive', focus() { return this.cell.group.getWorldPosition(_bf); } },   // dives into the tissue cell ...
+  bridge: { mode: 'register', scaleRatio:1.72, focus() { return this.cell.group.getWorldPosition(_bf); } },   // dives into the tissue cell ...
   build(layer) {
     const S = makeScene({ gx: .5, gy: .5 }); this.S = S; this.scene = S.scene; this.camera = S.camera;
     this.shots = [

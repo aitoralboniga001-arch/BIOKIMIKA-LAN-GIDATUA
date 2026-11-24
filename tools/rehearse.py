@@ -10,6 +10,7 @@ def main():
     parser.add_argument('--headless',action='store_true',help='Use a headless window for unattended comparison')
     parser.add_argument('--slides', type=int, nargs='*')
     parser.add_argument('--seconds',type=int,default=30)
+    parser.add_argument('--settle-ms',type=int,default=0,help='Let the preceding slide render before measuring the transition')
     parser.add_argument('--output',type=Path,required=True)
     options=parser.parse_args()
     deck=Path(__file__).resolve().parents[1]
@@ -32,6 +33,7 @@ def main():
             if options.slides and i+1 not in options.slides: continue
             if options.slides and i > 0 and page.evaluate('__pres.state.si') != i - 1:
                 page.evaluate('a=>{__pres.goSlide(a[0],a[1]);__pres.step(130,50,true);}',[i-1,counts[i-1]-1])
+            if options.settle_ms > 0: page.wait_for_timeout(options.settle_ms)
             sample=page.evaluate("""([slide,count,seconds])=>new Promise(resolve=>{
               const origin=performance.now(),longFrames=[];
               const observer=new PerformanceObserver(list=>{
@@ -39,15 +41,21 @@ def main():
               });
               if(PerformanceObserver.supportedEntryTypes.includes('long-animation-frame'))observer.observe({type:'long-animation-frame'});
               __pres.goSlide(slide,0);let previous=null,first=null,beat=0,calls=0,triangles=0,hiddenFrames=0;const times=[];let worst={ms:0};
+              const byBeat=Array.from({length:count},()=>({frames:0,max:0,over50:0}));
+              let firstAdvanceAt=null, firstAdvanceMax=null;
               function tick(now){
                 if(first===null){first=previous=now;requestAnimationFrame(tick);return;}
                 const elapsed=now-first;if(document.hidden)hiddenFrames++;const interval=now-previous;times.push(interval);if(interval>worst.ms)worst={ms:interval,elapsed,beat:__pres.state.bi+1,bridge:__pres.renderedBridge};previous=now;
+                const current=byBeat[__pres.state.bi];
+                current.frames++;current.max=Math.max(current.max,interval);
+                if(interval>50)current.over50++;
                 const target=Math.min(count-1,Math.floor(elapsed/(seconds*1000/count)));
-                if(target>beat){__pres.next();beat++;}
+                if(firstAdvanceAt!==null && elapsed-interval-firstAdvanceAt<650)firstAdvanceMax=Math.max(firstAdvanceMax||0,interval);
+                if(target>beat){if(beat===0)firstAdvanceAt=elapsed;__pres.next();beat++;}
                 if(!__pres.renderedBridge){calls=Math.max(calls,__pres.renderInfo.calls);triangles=Math.max(triangles,__pres.renderInfo.triangles);}
                 if(elapsed<seconds*1000){requestAnimationFrame(tick);return;}
                 observer.disconnect();const n=times.length;times.sort((a,b)=>a-b);longFrames.sort((a,b)=>b.duration-a.duration);
-                resolve({slide:slide+1,frames:n,fps:+(1000*n/elapsed).toFixed(1),median:times[n>>1],p95:times[Math.floor(n*.95)],p99:times[Math.floor(n*.99)],over34:times.filter(x=>x>=34).length,longFrames:longFrames.slice(0,4),worst,max:times[n-1],calls,triangles,hiddenFrames,lateLinks,quality:__pres.quality});
+                resolve({slide:slide+1,byBeat,maxDuringFirstAdvance:firstAdvanceMax,frames:n,fps:+(1000*n/elapsed).toFixed(1),median:times[n>>1],p95:times[Math.floor(n*.95)],p99:times[Math.floor(n*.99)],over34:times.filter(x=>x>=34).length,longFrames:longFrames.slice(0,4),worst,max:times[n-1],calls,triangles,hiddenFrames,lateLinks,quality:__pres.quality});
               }requestAnimationFrame(tick);
             })""",[i,beats,options.seconds])
             results['samples'].append(sample)

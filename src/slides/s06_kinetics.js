@@ -108,7 +108,8 @@ export function verdict(rel, elim, A, rmax, peak) {
 
 export default {
   id: 'kinetics', chapter: 2, beats: 7, title: 'Entzimen agerpen-zinetika', bloom: .5,
-  bridge: { mode: 'dive', focus() { return this.patch.mesh.getWorldPosition(_bf); } },   // from the injured tissue patch ...
+  bridgeIn: { focus() { return this.tm.group.getWorldPosition(_bf); } },
+  bridge: { mode: 'dive', focus() { return (this.b >= 4 ? this.cursorTube : this.patch.mesh).getWorldPosition(_bf); } },   // from the injured tissue patch ...
   build(layer) {
     const S = makeScene({ glow: '#FFF1E6', gx: .2, gy: .55 }); this.S = S; this.scene = S.scene; this.camera = S.camera;
     this.rig = new CamRig(this.camera, V(0, 0, 10), V(0, 0, 0), { fov: 34, drift: .03 });
@@ -183,13 +184,16 @@ export default {
     const ticks=new THREE.InstancedMesh(new THREE.BoxGeometry(.024,.105,.026),new THREE.MeshStandardMaterial({color:'#4b6270'}),12);
     const mark=new THREE.Object3D();for(let j=0;j<12;j++){const a=j*Math.PI/6;mark.position.set(.77*Math.sin(a),.77*Math.cos(a),.11);mark.rotation.z=-a;mark.updateMatrix();ticks.setMatrixAt(j,mark.matrix);}dial.add(ticks);
     this.clockHand=new THREE.Group();dial.add(this.clockHand);
-    const handMesh=new THREE.Mesh(new THREE.BoxGeometry(.038,.65,.026),new THREE.MeshStandardMaterial({color:COL3.coral}));handMesh.position.set(0,.27,.14);this.clockHand.add(handMesh);
+    const handMesh=new THREE.Mesh(new THREE.BoxGeometry(.078,.70,.038),new THREE.MeshStandardMaterial({color:COL3.coral}));handMesh.position.set(0,.27,.14);this.clockHand.add(handMesh);
     this.curveAt=at;
     const ph = (t0, t1, lab, sub, col, b) => { const g = this.ch.phase(t0, t1, lab, col, b); const s = el('text', { x: (this.ch.X(t0) + this.ch.X(t1)) / 2, y: 60, 'text-anchor': 'middle', 'font-size': 22, 'font-weight': 500, fill: PAL.ink2 }, g); s.textContent = sub; };
     ph(0, TP - PW, '1 · Igoera', 'iristea > kentzea', alpha(PAL.amber, .08), '1-3');
     ph(TP - PW, TP + PW, '2 · Gailurra', 'iristea = kentzea', alpha(PAL.coral, .1), '2-3');
     ph(TP + PW, 1, '3 · Jaitsiera', 'kentzea > iristea', alpha(PAL.blue, .06), '3-3');
     // probe: the measured point of a single sample (flash ring + reading line to the axis)
+    // During serial sampling, connect the two actual samples being compared.
+    this.sampleChord = el('path', { fill:'none', stroke:INK, 'stroke-width':3,
+      'stroke-linecap':'round', 'stroke-dasharray':'7 7', opacity:0 }, this.ch.marksG);
     this.probe = el('g', { opacity: 0 }, this.ch.marksG);
     this.pLine = el('line', { x1: 0, stroke: alpha(INK, .45), 'stroke-dasharray': '4 7', 'stroke-width': 2 }, this.probe);
     this.pRing = el('circle', { r: 12, fill: 'none', stroke: INK, 'stroke-width': 3, class: 'snapring' }, this.probe);
@@ -261,7 +265,7 @@ export default {
     if (this.b === 6) {   // serial samples: the reading jumps from one sample to the next
       if (this.t6 < 0) this.t6 = t;
       const i = Math.floor((t - this.t6) / 1.9) % SAMPLES.length;
-      if (i !== this.i6) { this.i6 = i; this.ch.curT.to(SAMPLES[i], .7, ease.io); this.pTag.textContent = `${i + 1}. lagina`; }
+      if (i !== this.i6) { this.i6 = i; this.ch.curT.to(SAMPLES[i], .7, ease.io); this.pTag.textContent = ''; }
     }
     this.ch.update();
     const tc = this.ch.sampleTime, A = M.A(tc), rel = M.rel(tc), elim = M.elim(tc), on = this.flowOn.v;
@@ -275,6 +279,19 @@ export default {
     });
     // probe
     const px = this.ch.X(tc), py = this.ch.Y(A);
+    const pair = this.b === 6 && this.i6 > 0 && this.ch.scrub == null;
+    this.sampleChord.setAttribute('opacity', pair ? .78 : 0);
+    if (this.b === 6 && this.ch.scrub == null && Math.abs(tc-SAMPLES[this.i6]) < .006) {
+      const name = `${this.i6+1}. lagina`;
+      if (this.pTag.textContent !== name) this.pTag.textContent = name;
+    }
+    if (pair) {
+      const previous = SAMPLES[this.i6 - 1], x = this.ch.X(previous), y = this.ch.Y(M.A(previous));
+      const target=SAMPLES[this.i6], endY=this.ch.Y(M.A(target));
+      const progress=clamp((tc-previous)/(target-previous));
+      this.sampleChord.setAttribute('stroke', endY<y ? PAL.coral : PAL.blue);
+      this.sampleChord.setAttribute('d', `M${x} ${y}L${px} ${y+(endY-y)*progress}`);
+    }
     this.pLine.setAttribute('x2', px); this.pLine.setAttribute('y1', py); this.pLine.setAttribute('y2', py);
     this.pRing.setAttribute('cx', px); this.pRing.setAttribute('cy', py); this.pDot.setAttribute('cx', px); this.pDot.setAttribute('cy', py);
     this.pTag.setAttribute('x', px); this.pTag.setAttribute('y', py - 58);

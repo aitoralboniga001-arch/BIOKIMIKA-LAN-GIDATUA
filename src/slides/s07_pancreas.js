@@ -21,12 +21,12 @@ const RA = rmax(AM), RL = rmax(LM);
 const backIn = m => { for (let i = Math.round(m.tPeak * 400); i <= 400; i++) if (m.A(i / 400) < REF) return i / 400; return 1; };
 const W0 = backIn(AM), W1 = backIn(LM);          // window where amylase is back in range and lipase is still high
 const TA = -4.02, TL = -2.32, TY = -1.925, TS = .44; // sample tubes: x, floor, scale (left column, below the organ)
-const PG = V(-3.02, .93, 0), PS = 1.24;            // pancreas group position / scale
+const PG = V(-3.02, .93, 0), PS = 1.36;            // pancreas group position / scale
 
 export default {
   id: 'pancreas', chapter: 2, beats: 3, title: 'Pankreatitis akutua: amilasa eta lipasa', bloom: .5,
   bridgeIn: { focus() { return this.pg.getWorldPosition(_bf); } },                     // ... into the pancreas
-  bridge: { mode: 'cells', focus() { return this.pg.getWorldPosition(_bf); } },
+  bridge: { mode: 'flow', dir: [1, 0] },
   build(layer) {
     const S = makeScene({ glow: '#F2FAF7', gx: .2, gy: .5 }); this.S = S; this.scene = S.scene; this.camera = S.camera;
     this.rig = new CamRig(this.camera, V(0, 0, 10), V(0, 0, 0), { fov: 34, drift: .03 });
@@ -45,10 +45,13 @@ export default {
       shade(s); s.uniforms.uInflammation=this.inflammation;
       s.fragmentShader='uniform float uInflammation;\n'+s.fragmentShader.replace('#include <color_fragment>',`#include <color_fragment>
         float front=1.-smoothstep(-1.4+3.6*uInflammation,-1.+3.6*uInflammation,tissueP.x);
+        vec3 lobule=tissueP.xyz*vec3(34.,31.,35.);
+        float cleft=abs(sin(lobule.x+1.3*sin(tissueP.y*23.))*sin(lobule.y+1.1*sin(tissueP.z*27.))*sin(lobule.z+1.7*sin(tissueP.x*21.)));
+        diffuseColor.rgb *= mix(vec3(.78,.70,.65),vec3(1.06,1.02,.96),smoothstep(.03,.58,cleft));
         diffuseColor.rgb=mix(diffuseColor.rgb,vec3(.68,.12,.075),front*uInflammation*.65);`);
     };
-    g.add(new THREE.Mesh(pp.duct, new THREE.MeshPhysicalMaterial({ color: C('#CDB850'), roughness: .3, clearcoat: .8, envMapIntensity: .8 })));
-    g.add(new THREE.Mesh(pp.duo, new THREE.MeshPhysicalMaterial({ color: C('#E6B0AE'), roughness: .45, clearcoat: .5, sheen: .4, sheenColor: C('#ffd8d0'), envMapIntensity: .7 })));
+    g.add(new THREE.Mesh(pp.duct, new THREE.MeshPhysicalMaterial({ color: C('#9C7429'), roughness: .3, clearcoat: .8, envMapIntensity: .8 })));
+    g.add(new THREE.Mesh(pp.duo, new THREE.MeshPhysicalMaterial({ color: C('#D79595'), roughness: .45, clearcoat: .5, sheen: .4, sheenColor: C('#ffd8d0'), envMapIntensity: .7 })));
     this.pHalo = halo(COL3.coral, 3.2, 0); this.pHalo.position.set(PG.x - .1, PG.y, -.4); this.pHalo.scale.set(3.4, 1.8, 1); this.scene.add(this.pHalo);
     const psh = contactShadow({ size: 1, opacity: .1 }); psh.scale.set(2.6, .5, 1); psh.position.set(PG.x, PG.y - .62, -.3); this.scene.add(psh);
     // release points on the front surface (world space)
@@ -77,7 +80,18 @@ export default {
     this.l = this.ch.curve(LM.A, { color: PAL.teal, width: 6, dash: '16 12', name: 'Lipasa', nameAt: .38, nameDy: -28 });
     // the late-sample window, computed from the two models
     const wg = el('g', { 'data-b': '2' }, this.ch.phases);
-    el('rect', { x: this.ch.X(W0), y: 0, width: this.ch.X(W1) - this.ch.X(W0), height: this.ch.h, fill: alpha(PAL.teal, .08) }, wg);
+    el('rect', { x: this.ch.X(W0), y: 0, width: this.ch.X(W1) - this.ch.X(W0), height: this.ch.h, fill: alpha(PAL.teal, .035) }, wg);
+    // Shade only the separation between the two measured activities in the late window.
+    const band = [];
+    for (let i=0;i<=60;i++) {
+      const time=W0+(W1-W0)*i/60;
+      band.push([this.ch.X(time),this.ch.Y(LM.A(time))]);
+    }
+    for (let i=60;i>=0;i--) {
+      const time=W0+(W1-W0)*i/60;
+      band.push([this.ch.X(time),this.ch.Y(AM.A(time))]);
+    }
+    el('path',{d:'M'+band.map(p=>p.map(v=>v.toFixed(1)).join(',')).join('L')+'Z',fill:alpha(PAL.teal,.15)},wg);
     const wt = el('text', { x: this.ch.X((W0 + W1) / 2), y: 32, 'text-anchor': 'middle', 'font-size': 22, 'font-weight': 700, style: `fill:${PAL.teal}` }, wg); wt.textContent = 'amilasa tartean · lipasa altu';
     this.ringG = el('g', { opacity: 0 }, this.ch.marksG);
     this.rings = [PAL.amber, PAL.teal].map(c => el('circle', { r: 12, fill: 'none', stroke: c, 'stroke-width': 3, class: 'snapring2' }, this.ringG));

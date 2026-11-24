@@ -8,7 +8,7 @@ import { coronarySection } from './coronary_section.js';
 import { buildHeart } from './s11_heart.js';
 import { PAL, COL3, INK, LINE2, alpha } from '../theme.js';
 import { CamRig, V } from '../rig.js';
-import { Chart } from '../chart.js';
+import { Chart, el } from '../chart.js';
 import { balanceModel } from '../sim.js';
 import { tubeMeter } from './s06_kinetics.js';
 const _bf = new THREE.Vector3(); // scratch vector for the bridge focus
@@ -61,6 +61,17 @@ export default {
     this.ch = new Chart(layer, { x: 900, y: 300, w: 900, h: 420, ref: REF, xLabel: 'Infartuaren ondorengo denbora', yLabel: 'Jarduera plasmatikoa', b: '2' });
     this.cC = this.ch.curve(CKM.A, { color: PAL.coral, width: 6, name: 'CK osoa', nameAt: .2, nameDy: -24 });
     this.cL = this.ch.curve(LDM.A, { color: PAL.blue, width: 6, dash: '16 12', name: 'LDH', nameAt: .56, nameDy: -26 });
+    // Retain the early readings when comparing them with the late specimen.
+    const earlyReadings = el('g', {'data-b':'5-5',class:'fx fade d2'},this.ch.marksG);
+    const earlyX = this.ch.X(T_EARLY);
+    const ckY = this.ch.Y(CKM.A(T_EARLY)), ldY = this.ch.Y(LDM.A(T_EARLY));
+    el('line',{x1:earlyX,x2:earlyX,y1:Math.min(ckY,ldY),y2:this.ch.h,
+      stroke:PAL.ink2,'stroke-width':2,'stroke-dasharray':'4 6',opacity:.55},earlyReadings);
+    for (const [y,col] of [[ckY,PAL.coral],[ldY,PAL.blue]]) {
+      el('circle',{cx:earlyX,cy:y,r:7,fill:'#fffaf5',stroke:col,'stroke-width':3},earlyReadings);
+    }
+    const earlyLabel = el('text',{x:earlyX+15,y:ckY-7,fill:PAL.ink2,'font-size':21},earlyReadings);
+    earlyLabel.textContent='lagin goiztiarra';
     const call = (b, html) => add(layer, `<div class="key" data-b="${b}" style="left:900px;top:850px;bottom:auto;font-size:33px;max-width:940px">${html}</div>`);
     call('2-2', `<span style="color:var(--coral)">CK osoa</span>: lehenago igo, lehenago itzuli`);
     call('3-3', `<span style="color:var(--blue)">LDH</span>: beranduago hasi, luzaroago altu`);

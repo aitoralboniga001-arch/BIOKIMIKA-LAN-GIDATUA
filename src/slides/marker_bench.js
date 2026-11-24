@@ -14,8 +14,8 @@ export function markerBench(scene, layer) {
   const stations = ['liver','heart','muscle'].map((kind,i)=>{
     const station=new THREE.Group();station.position.x=(i-1)*1.47;
     bio.add(station);
-    const organ=specimen(kind);organ.position.y=.82;organ.scale.setScalar(.89);station.add(organ);
-    const fills=[],r=.156,height=.94;
+    const organ=specimen(kind);organ.position.y=.82;organ.scale.setScalar(1.02);station.add(organ);
+    const fills=[],r=.184,height=.94;
     const shell=new THREE.CylinderGeometry(r,r,height,24,1,true);
     const liquid=new THREE.CylinderGeometry(r*.89,r*.89,1,24);
     const labels=[];
@@ -55,12 +55,22 @@ export function markerBench(scene, layer) {
       board.add(ring);
     }
     const pins = new THREE.InstancedMesh(
-      new THREE.ConeGeometry(.058,.32,9),
+      new THREE.ConeGeometry(.078,.35,9),
       new THREE.MeshStandardMaterial({ color: i ? '#985422' : '#0b6358' }),
       12,
     );
     board.add(pins);
-    return pins;
+    // A thin outline encloses the full set of impacts after the final dart lands.
+    const outline = Array.from({length: 65}, (_, k) => {
+      const angle = k * Math.PI / 32;
+      return new THREE.Vector3(Math.cos(angle), Math.sin(angle), 0);
+    });
+    const groupOutline = new THREE.Line(new THREE.BufferGeometry().setFromPoints(outline),
+      new THREE.LineBasicMaterial({color:i ? '#86471e' : '#136758',transparent:true,opacity:0,depthWrite:false}));
+    board.add(groupOutline);
+    const label = new Label(layer,i ? 'B' : 'A',{b:'3-4',obj:board,
+      anchor:new THREE.Vector3(0,1.02,0),color:i ? '#86471e' : '#136758'});
+    return {pins, groupOutline, label};
   });
   const pin = new THREE.Object3D();
   pin.rotation.x = -Math.PI / 2;
@@ -71,6 +81,7 @@ export function markerBench(scene, layer) {
   return (b, t, caption, camera) => {
     if(b!==lastBeat){enteredAt=t;lastBeat=b;}
     t-=enteredAt;
+    for(const board of boards) board.label.update(camera);
     for(const station of stations) for(const label of station.labels) label.update(camera);
     group.visible = b >= 1 && b <= 4;
     if (!group.visible) return;
@@ -96,11 +107,14 @@ export function markerBench(scene, layer) {
           : 'A · sentikorra     /     B · sentikortasun txikiagoa';
       if (caption.textContent !== line) caption.textContent = line;
     } else {
-      boards.forEach((pins, i) => {
+      boards.forEach(({pins, groupOutline}, i) => {
         const launch=(t%6)*2.8;
         pins.count=Math.min(12,Math.floor(launch)+1);
         const spread = b === 3 && i === 1 ? 0.58 : 0.15,
           offset = b === 4 && i === 1 ? 0.43 : 0;
+        groupOutline.scale.setScalar(spread + .065);
+        groupOutline.position.set(offset,0,.049);
+        groupOutline.material.opacity = .74 * THREE.MathUtils.smoothstep(launch,11.75,13);
         for (let j = 0; j < 12; j++) {
           const angle = j * 2.4,
             rad = spread * Math.sqrt((j + 0.5) / 12);

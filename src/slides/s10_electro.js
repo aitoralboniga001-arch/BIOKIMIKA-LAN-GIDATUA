@@ -71,7 +71,7 @@ function lcdTex() {
 export default {
   id: 'electro', chapter: 3, beats: 5, title: 'Isoentzimak: elektroforesia', bloom: .8,
   bridgeIn: { focus() { return this.gel.localToWorld(_bf.set(WELL, .108, LANES[0].z)); } },  // ... which lands in the well
-  bridge: { mode: 'cells', focus() { return this.gel.localToWorld(_bf.set(0, .108, 0)); } },
+  bridge: { mode: 'register', scaleRatio: 1.22, focus() { return this.gel.localToWorld(_bf.set(this.U.uX.value[0], .108, LANES[0].z)); } },
   build(layer) {
     const S = makeScene({ gx: .5, gy: .55 }); this.S = S; this.scene = S.scene; this.camera = S.camera;
     const A = [V(.9, 8.1, 9.0), V(.8,.2,-.8),34], B=[V(0,8.8,9.2),V(0,.2,-.8),36];
@@ -125,7 +125,7 @@ export default {
     // electrolysis bubbles on the platinum wires while the current is on
     this.bub = new Pts(48); gel.add(this.bub.mesh); this.bubC = C('#FFFFFF');
     // band model uniforms (shared by the gel shader and the densitometer trace)
-    this.U = { uX: { value: [0, 0, 0, 0, 0] }, uS: { value: [S0, S0, S0, S0, S0] }, uA0: { value: [0, 0, 0, 0, 0] }, uA1: { value: [0, 0, 0, 0, 0] }, uLoad: { value: 0 }, uWell: { value: WELL }, uAbs: { value: new THREE.Vector3(2.7, 3.5, 1.15) } };
+    this.U = { uX: { value: [0, 0, 0, 0, 0] }, uS: { value: [S0, S0, S0, S0, S0] }, uA0: { value: [0, 0, 0, 0, 0] }, uA1: { value: [0, 0, 0, 0, 0] }, uLoad: { value: 0 }, uWell: { value: WELL }, uAbs: { value: new THREE.Vector3(3.35, 4.25, 1.38) } };
     this.shares = LANES.map(l => binomialShares(l.p, 4));
     const top = new THREE.Mesh(new THREE.PlaneGeometry(GW, GD), bandMat(this.U)); top.rotation.x = -Math.PI / 2; top.position.y = .108; gel.add(top);
     // the sample drops into the two wells
@@ -133,8 +133,16 @@ export default {
     this.tracers = migrationTracers(gel,LANES,this.shares);
     this.glowP = halo(COL3.red, 1.6, 0); this.glowP.position.set(-4.05, .3, 0); gel.add(this.glowP);
     // densitometer head
-    this.scanner = new THREE.Mesh(new THREE.BoxGeometry(.05, .06, 3.3), new THREE.MeshBasicMaterial({ color: C(COL3.teal), transparent: true, opacity: .9 })); this.scanner.position.set(-3.7, .2, 0); gel.add(this.scanner);
+    this.scanner = new THREE.Mesh(new THREE.BoxGeometry(.086, .09, 3.3), new THREE.MeshBasicMaterial({ color: C(COL3.teal), transparent: true, opacity: .9 })); this.scanner.position.set(-3.7, .2, 0); gel.add(this.scanner);
     this.readLamps = scannerOptics(this.scanner,LANES);
+    // An optical slit illuminates only the narrow strip being sampled in each lane.
+    const slitGeo = new THREE.PlaneGeometry(.18, .70);
+    this.scanSpots = LANES.map(l => {
+      const slit = new THREE.Mesh(slitGeo,new THREE.MeshBasicMaterial({color:'#91e8d7',
+        transparent:true,opacity:.42,depthWrite:false,side:THREE.DoubleSide}));
+      slit.rotation.x=-Math.PI/2; slit.position.set(0,-.078,l.z);
+      slit.renderOrder=6; this.scanner.add(slit); return slit;
+    });
     this.scanGlow = halo(COL3.teal, 1, .35); this.scanGlow.scale.set(.6, 3, 1); this.scanner.add(this.scanGlow);
     this.load = new Tw(0); this.run = new Tw(0); this.scan = new Tw(0); this.traceOn = new Tw(0);
     // 3D labels
@@ -238,7 +246,12 @@ export default {
     // scanner
     const sc = this.scan.v, xs = -3.8 + sc * 7.4;
     this.scanner.position.x = xs; this.scanner.visible = this.b === 2 && sc > 0 && sc < 1; this.lscan.vis = this.scanner.visible ? 1 : 0;
-    if(this.scanner.visible)this.readLamps(this.dens(0,xs),this.dens(1,xs));
+    if (this.scanner.visible) {
+      const first = this.dens(0,xs), second = this.dens(1,xs);
+      this.readLamps(first,second);
+      this.scanSpots[0].material.opacity = .64 / (1 + 3*first);
+      this.scanSpots[1].material.opacity = .64 / (1 + 3*second);
+    }
     this.origin.style.opacity = (this.originOn.v * ease.io(clamp((sc-.92)/.08))).toFixed(3);
     this.lw.vis = 1 - clamp((Rn - .9) / .05); // the well label gives way to the LDH5 peak name
     this.lp.update(this.camera); this.ln.update(this.camera); this.lw.update(this.camera); this.lscan.update(this.camera);

@@ -209,7 +209,7 @@ export function makeSpectro(rows, { xL = -1.32, xD = 1.36, cw = .56, chh = .9 } 
   const group = new THREE.Group();
   const housingMat = new THREE.MeshPhysicalMaterial({ color: C('#3A465C'), roughness: .45, clearcoat: .5, envMapIntensity: .7 });
   const bulbMat = new THREE.MeshBasicMaterial({ color: C('#FFE6A6') });
-  const beamGeo = new THREE.CylinderGeometry(.085, .025, 1, 20, 1, true); beamGeo.rotateZ(Math.PI / 2);
+  const beamGeo = new THREE.CylinderGeometry(.108, .047, 1, 20, 1, true); beamGeo.rotateZ(Math.PI / 2);
   const glassGeo = new THREE.BoxGeometry(cw, chh, cw), edgeGeo = new THREE.EdgesGeometry(glassGeo);
   const out = rows.map(r => {
     const g = new THREE.Group(); g.position.y = r.y; group.add(g);
@@ -222,7 +222,7 @@ export function makeSpectro(rows, { xL = -1.32, xD = 1.36, cw = .56, chh = .9 } 
     // Optical depth accumulates only inside the solution, then stays constant to the detector.
     const clock={value:0}, absorbance={value:0};
     const mk = (x0,x1,opacity) => {
-      const material=new THREE.MeshBasicMaterial({color:C('#FFC35A'),transparent:true,opacity,depthWrite:false});
+      const material=new THREE.MeshBasicMaterial({color:C('#E49C24'),transparent:true,opacity,depthWrite:false});
       material.onBeforeCompile=shader=>{
         Object.assign(shader.uniforms,{uPath:{value:new THREE.Vector2(x0,x1)},uClock:clock,uAbs:absorbance,uWidth:{value:cw}});
         shader.vertexShader='uniform vec2 uPath; varying float vRayX;\n'+shader.vertexShader.replace('#include <begin_vertex>',
@@ -233,21 +233,32 @@ export function makeSpectro(rows, { xL = -1.32, xD = 1.36, cw = .56, chh = .9 } 
            float transmission=pow(10.,-1.2*uAbs*depth);
            float pulse=pow(.5+.5*cos(vRayX*14.-uClock*7.),6.);
            diffuseColor.rgb=mix(diffuseColor.rgb,vec3(1.,.89,.55),pulse);
-           diffuseColor.a*=transmission*(.32+.68*pulse);`);
+           diffuseColor.a*=transmission*(.48+.52*pulse);`);
       };
       const m=new THREE.Mesh(beamGeo,material);
       m.scale.x=x1-x0; m.position.x=(x0+x1)/2;g.add(m);return m;
     };
-    const bIn = mk(xL + .18, -cw / 2, .6), bMid = mk(-cw / 2, cw / 2, .35), bOut = mk(cw / 2, xD - .17, .6);
+    const bIn = mk(xL + .18, -cw / 2, .84), bMid = mk(-cw / 2, cw / 2, .52), bOut = mk(cw / 2, xD - .17, .84);
     // cuvette: glass box with crisp edges and a solution that colours as product forms
     const liq = new THREE.Mesh(new THREE.BoxGeometry(cw - .06, chh * .74, cw - .06), new THREE.MeshPhysicalMaterial({ color: C('#F4EEF2'), roughness: .2, transparent: true, opacity: .4, depthWrite: false, envMapIntensity: .6 }));
     liq.position.y = -chh * .1; g.add(liq);
     g.add(new THREE.Mesh(glassGeo, glassMat(COL3.glass)));
     g.add(new THREE.LineSegments(edgeGeo, new THREE.LineBasicMaterial({ color: C(COL3.glass), transparent: true, opacity: .55 })));
+    // A fine meniscus makes the air/solution interface distinct from the glass rim.
+    const rim = cw / 2 - .032, fillY = liq.position.y + chh * .37;
+    const meniscus = new THREE.LineLoop(new THREE.BufferGeometry().setFromPoints([
+      new THREE.Vector3(-rim,fillY,-rim),new THREE.Vector3(rim,fillY,-rim),
+      new THREE.Vector3(rim,fillY,rim),new THREE.Vector3(-rim,fillY,rim)
+    ]),new THREE.LineBasicMaterial({color:'#a37d8b',transparent:true,opacity:.74}));
+    g.add(meniscus);
     // detector
     const det = new THREE.Mesh(new THREE.BoxGeometry(.34, .44, .34), housingMat); det.position.x = xD + .02; g.add(det);
     const win = new THREE.Mesh(new THREE.CircleGeometry(.07, 20), new THREE.MeshBasicMaterial({ color: C('#FFE0A0') })); win.rotation.y = -Math.PI / 2; win.position.x = xD - .155; g.add(win);
     const led = new THREE.Mesh(new THREE.PlaneGeometry(.2, .08), new THREE.MeshBasicMaterial({ color: C(COL3.teal) })); led.position.set(xD + .02, .08, .171); g.add(led);
+    // A recessed detector display shows how much light reaches the sensor.
+    const rail = new THREE.Mesh(new THREE.PlaneGeometry(.255,.105),housingMat);
+    rail.position.set(xD+.02,.08,.172); g.add(rail);
+    led.position.z=.174; led.material.depthWrite=false;
     return { g, liq, bIn, bMid, bOut, win, bh, led, clock, absorbance, liqY: liq.position.y, liqH: chh * .74, inner: cw - .12 };
   });
   const pale = C('#F4EEF2'), pink = C(COL3.pink);
@@ -255,6 +266,8 @@ export function makeSpectro(rows, { xL = -1.32, xD = 1.36, cw = .56, chh = .9 } 
     // a: absorbance 0..1 per row
     set(i, a, t) { const r = out[i], T = Math.pow(10, -a * 1.2);
       r.liq.material.color.lerpColors(pale, pink, clamp(a * 1.1)); r.liq.material.opacity = .4 + a * .3;
+      r.led.scale.x = Math.max(.035, T);
+      r.led.position.x = xD + .02 - .10 * (1 - r.led.scale.x);
       r.clock.value=t; r.absorbance.value=a;
       const pulse=Math.pow(.5+.5*Math.cos((xD-.17)*14-t*7),6);
       const signal=(.42+.58*pulse)*T;

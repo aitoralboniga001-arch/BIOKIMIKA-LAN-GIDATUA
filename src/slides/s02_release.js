@@ -33,7 +33,7 @@ const TRICKLE = 4;                   // enzymes in transit at the basal rate (1.
 export default {
   id: 'release', chapter: 1, beats: 6, title: 'Zergatik igotzen da jarduera plasmatikoa?', bloom: .7,
   bridgeIn: { focus() { return this.cell.group.getWorldPosition(_bf); } },             // ... which becomes the releasing cell
-  bridge: { mode: 'flow', dir: [1, -.3] },
+  bridge: { mode: 'register', scaleRatio: 1.28, focus() { return this.exampleFills[2].getWorldPosition(_bf); } },
   build(layer) {
     const S = makeScene({ gx: .45, gy: .5 }); this.S = S; this.scene = S.scene; this.camera = S.camera;
     this.rig = new CamRig(this.camera, V(-.2, .62, 14), V(-.2, .12, 0), { fov: 34, drift: .04 });
@@ -60,11 +60,11 @@ export default {
     this.valve = new THREE.Mesh(new THREE.TorusGeometry(.26, .06, 12, 40), new THREE.MeshStandardMaterial({ color: C(COL3.blue), roughness: .4 })); this.valve.rotation.x = Math.PI / 2; this.valve.position.y = POOL.y0 - .55; pool.add(this.valve);
     // stream guide (faint arc from cell to pool); its opacity follows the measured inflow
     this.path = new THREE.QuadraticBezierCurve3(V(-1.9, .35, 0), V(-.5, 2.3, .3), V(POOL.x, POOL.y1 + .6 + POOL.y, 0));
-    this.tube = new THREE.Mesh(new THREE.TubeGeometry(this.path, 64, .045, 8), new THREE.MeshBasicMaterial({ color: C(COL3.coral), transparent: true, opacity: .08, depthWrite: false }));
+    this.tube = new THREE.Mesh(new THREE.TubeGeometry(this.path, 64, .061, 8), new THREE.MeshBasicMaterial({ color: C(COL3.coral), transparent: true, opacity: .08, depthWrite: false }));
     this.scene.add(this.tube);
     this.p0 = this.path.getPoint(0); this.mouth = V(POOL.x, POOL.y + POOL.y0 - .05, 0); this.outP = V(POOL.x, POOL.y + POOL.y0 - 1.6, 0);
     // agents
-    this.blobs = instancedBlobs(MAX, { r: .075, glow: .25, seed: 12 }); this.scene.add(this.blobs);
+    this.blobs = instancedBlobs(MAX, { r: .094, glow: .21, seed: 12 }); this.scene.add(this.blobs);
     this.cCyt = C(COL3.coral); this.cMit = C(COL3.gold); this.cOut = C(COL3.blue); this.cTmp = C('#ffffff');
     this.A = []; const R = rng(31); this.R = R;
     for (let i = 0; i < MAX; i++) this.A.push({ st: 0, p: V(0, 0, 0), cur: V(0, 0, 0), v: V(0, 0, 0), t: 0, s: 0, ph: R() * 6.28, mit: false, home: V(0, 0, 0), from: V(0, 0, 0), m: null });
@@ -88,7 +88,7 @@ export default {
 
     // ---- text
     add(layer, `<div class="eyebrow"><b>2</b>Igoeraren jatorria</div>`);
-    add(layer, `<div class="h1">Odolera <em>iristea</em> ↔ odoletik <em>desagertzea</em></div>`);
+    add(layer, `<div class="h1 fade" data-reveal="fade">Odolera <em>iristea</em> ↔ odoletik <em>desagertzea</em></div>`);
     // balance panel: flux bars, verdict, strip chart + meter on the same vertical scale
     this.panel = add(layer, `<div class="abs" style="left:1330px;top:222px;width:540px;transition:opacity .6s">
       <div style="display:grid;grid-template-columns:180px 330px;row-gap:12px;align-items:center;font:600 24px/1 var(--sans)">
@@ -100,11 +100,16 @@ export default {
     this.bIn = this.panel.querySelector('.b-in'); this.bOut = this.panel.querySelector('.b-out'); this.bVerdict = this.panel.querySelector('.b-verdict');
     for(const bar of [this.bIn,this.bOut]){bar.style.width='100%';bar.style.transformOrigin='0 50%';}
     const top = 410;
-    this.meter = add(layer, `<div class="meter" style="left:1790px;top:${top}px;height:${SH}px;transition:opacity .6s"><div class="ref" style="height:${(REF * 100).toFixed(1)}%"></div><div class="fill" style="background:linear-gradient(0deg,${PAL.amber},${PAL.coral})"></div></div>`);
-    this.fill = this.meter.querySelector('.fill');
-    const svg = el('svg', { class: 'chart', width: SW + 40, height: SH + 80, viewBox: `-20 -40 ${SW + 40} ${SH + 80}` }); svg.style.left = (1360 - 20) + 'px'; svg.style.top = (top - 40) + 'px'; svg.style.transition = 'opacity .6s';
+    // Keep the plasma gauge on the same SVG scale as the trace. A CSS capsule with
+    // an inset shadow and a clipped, changing fill forced a costly first raster.
+    const svg = el('svg', { class: 'chart', width: SW + 120, height: SH + 80, viewBox: `-20 -40 ${SW + 120} ${SH + 80}` }); svg.style.left = (1360 - 20) + 'px'; svg.style.top = (top - 40) + 'px'; svg.style.transition = 'opacity .6s';
     layer.appendChild(svg); this.strip = svg;
+    const gaugeX = SW + 33, gaugeWidth = 38;
+    el('rect', { x: gaugeX, y: 0, width: gaugeWidth, height: SH, rx: 8, fill: PAPER, stroke: LINE2, 'stroke-width': 2 }, svg);
+    el('rect', { x: gaugeX + 2, y: SH * (1 - REF), width: gaugeWidth - 4, height: SH * REF - 2, fill: alpha(INK, .08) }, svg);
+    this.fill = el('rect', { x: gaugeX + 5, y: SH, width: gaugeWidth - 10, height: 0, rx: 3, fill: PAL.amber }, svg);
     const yRef = SH - REF * SH;
+    el('path', { d: `M${gaugeX - 2} ${yRef}h${gaugeWidth + 4}`, stroke: INK2, 'stroke-width': 2, 'stroke-dasharray': '4 3' }, svg);
     el('rect', { x: 0, y: yRef, width: SW, height: SH - yRef, fill: alpha(INK, .045) }, svg);
     el('line', { x1: 0, x2: SW, y1: yRef, y2: yRef, stroke: LINE2, 'stroke-width': 1.5, 'stroke-dasharray': '6 7' }, svg);
     // the reference band is named below the axis (legend style), so no trace ever runs through its label
@@ -119,6 +124,7 @@ export default {
     this.previousName = el('text',{x:SW-4,y:29,'text-anchor':'end','font-size':20,fill:MUTE},svg);
     this.area = el('path', { fill: alpha(PAL.amber, .12), stroke: 'none' }, svg);
     this.trace = el('path', { fill: 'none', stroke: PAL.amber, 'stroke-width': 3.5, 'stroke-linejoin': 'round', 'stroke-linecap': 'round' }, svg);
+    this.readLevel = el('path', { fill:'none', stroke:PAL.amber, 'stroke-width':1.8, 'stroke-dasharray':'3 6', opacity:.68 }, svg);
     this.tip = el('circle', { r: 7, fill: PAL.coral, stroke: PAPER, 'stroke-width': 2.5 }, svg);
     // figure-1 style summary: two families of causes
     const step = (n, txt, b) => `<div class="idx-i mech" data-m="${b}"><span class="n">${n}</span>${txt}</div>`;
@@ -142,7 +148,7 @@ export default {
     this.exampleFills=[0,1,2].map(i=>{
       const g=new THREE.Group();g.position.set((i-1)*3.34-.21,-.05,0);this.examples.add(g);
       const organ=specimen(['bone','placenta','muscle'][i]);organ.position.set(-.48,0,0);g.add(organ);
-      const stream=new Pts(12);g.add(stream.mesh);this.exampleStreams.push({stream,color:C(i<2?COL3.mint:COL3.coral)});
+      const stream=new Pts(12);g.add(stream.mesh);this.exampleStreams.push({organ,stream,color:C(i<2?COL3.mint:COL3.coral)});
       const glass=glassCylinder({r:.18,h:1.10});glass.position.set(.66,.02,0);g.add(glass);
       const fill=new THREE.Mesh(new THREE.CylinderGeometry(.155,.155,1,28),liquidMat(i<2?COL3.mint:COL3.coral));glass.add(fill);return fill;
     });
@@ -161,7 +167,7 @@ export default {
       new Label(layer, 'Ehuneko zelula', { color: PAL.coral, anchor: V(-1.2, -1.2, 0), obj: cell.group, side: 'l', b: '-4' }),
       // after necrosis the ghost keeps a name, on a pill so the spray of debris never makes it illegible
       new Label(layer, 'Zelula nekrotikoa', { color: PAL.coral, anchor: V(-1.2, -1.2, 0), obj: cell.group, side: 'l', b: '-4' }),
-      new Label(layer, 'Plasma <span style="font-weight:400">(odola)</span>', { color: PAL.amber, anchor: V(0, POOL.y1 + .95, 0), obj: pool, b: '-4' }),
+      new Label(layer, 'Plasma <span style="font-weight:400">(odola)</span>', { color: PAL.amber, anchor: V(.43, POOL.y1 + 1.20, 0), obj: pool, b: '-4' }),
       new Label(layer, 'eliminazioa<small>batez ere katabolismoa</small><small>giltzurruna: entzima txikiak</small>', { color: PAL.blue, anchor: V(-.35, POOL.y0 - .7, 0), obj: pool, side: 'l', b: '-4' }),
     ];
     this.labs[1].el.classList.add('bg');
@@ -216,7 +222,7 @@ export default {
       e.classList.toggle('on', on); e.classList.toggle('dim', !(b === 0 || b === 5 || on)); });
     this.mechanisms.visible=b!==5;this.examples.visible=b===5;this.exampleStart=clock.t;
     const dim = b === 5 ? 0 : 1;
-    this.boxA.style.opacity = dim; this.boxB.style.opacity = dim; this.panel.style.opacity = dim; this.meter.style.opacity = dim; this.strip.style.opacity = dim;
+    this.boxA.style.opacity = dim; this.boxB.style.opacity = dim; this.panel.style.opacity = dim; this.strip.style.opacity = dim;
   },
   // necrosis visuals; returns the progress 0..1 (1 = cell gone) used by the label and the release logic
   necrosis(t) {
@@ -238,7 +244,8 @@ export default {
     c.memU.uShatter.value = shat; c.memU.uOpacity.value = mem;
     c.cyto.material.uniforms.uOpacity.value = cyto;
     c.nucleus.scale.setScalar(1 - pyk * .45); c.nucMat.opacity = 1 - pyk * .6; c.nl.material.opacity = 1 - pyk;
-    c.mitos.forEach((m, i) => { m.visible = !mGone; m.scale.setScalar(c.R * .62 * (1 + mSw * .75 + Math.sin(t * 9 + i) * .04 * mSw)); m.children[0].material.opacity = .55 + mSw * .25; this.mFlash[i].material.opacity = mfl * .95; this.mFlash[i].scale.setScalar(.8 + mfl * 1.8); });
+    c.mitos.forEach((m, i) => { m.visible = !mGone; m.scale.setScalar(c.R * .62 * (1 + mSw * .75 + Math.sin(t * 9 + i) * .04 * mSw)); m.children[0].material.opacity = .55 + mSw * .25; this.mFlash[i].visible = mfl > .001; this.mFlash[i].material.opacity = mfl * .95; this.mFlash[i].scale.setScalar(.8 + mfl * 1.8); });
+    this.flare.visible = fl > .001;
     this.flare.material.opacity = fl;
     this.ghost.material.uniforms.uOpacity.value = ghost; this.ghost.visible = ghost > .01;
     const dv = this.debris.n;
@@ -256,19 +263,30 @@ export default {
   },
   drawStrip() {
     if(this.hn===NS){this.previous.removeAttribute("d");this.previousName.textContent="";}
-    if (!this.hn) { this.trace.setAttribute('d', ''); this.area.setAttribute('d', ''); this.tip.setAttribute('opacity', 0); return; }
+    if (!this.hn) { this.readLevel.removeAttribute('d'); this.trace.setAttribute('d', ''); this.area.setAttribute('d', ''); this.tip.setAttribute('opacity', 0); return; }
     let d = '';
     for (let i = 0; i < this.hn; i++) d += (i ? 'L' : 'M') + (i / (NS - 1) * SW).toFixed(1) + ' ' + (SH - this.hist[i] * SH).toFixed(1);
     this.trace.setAttribute('d', d);
     const xe = ((this.hn - 1) / (NS - 1) * SW).toFixed(1);
     this.area.setAttribute('d', d + `L${xe} ${SH}L0 ${SH}Z`);
+    const levelY = (SH - this.hist[this.hn - 1] * SH).toFixed(1);
+    this.readLevel.setAttribute('d', `M${xe} ${levelY}H${SW + 32}`);
     this.tip.setAttribute('opacity', 1); this.tip.setAttribute('cx', xe); this.tip.setAttribute('cy', (SH - this.hist[this.hn - 1] * SH).toFixed(1));
   },
   update(dt, t) {
     this.rig.update(t); this.S.dust.update(t);
-    if(this.b===2&&this.necT0!=null){const dtBurst=t-this.necT0-.55;if(dtBurst>=0&&dtBurst<.2)this.camera.position.x+=.037*Math.sin(dtBurst*110)*(1-dtBurst/.2);}
+    // A brief dolly into the first release keeps the membrane and the chart readable.
+    if (this.b === 2 && this.necT0 !== null) {
+      const u = clamp((t - this.necT0) / 2.8);
+      const focus = Math.sin(Math.PI * u) ** 2;
+      this.camera.position.z -= .24 * focus;
+      this.camera.position.x -= .10 * focus;
+    }
     if(this.b===5){
-      this.exampleStreams.forEach(({stream,color},i)=>{
+      this.exampleStreams.forEach(({organ,stream,color},i)=>{
+        const age=Math.max(0,t-this.exampleStart-i*.25);
+        organ.rotation.y=-.25*(1-ease.out(clamp(age/1.2)))+.13*Math.sin(age*.58);
+        organ.rotation.z=.035*Math.sin(age*.44+i);
         for(let j=0;j<12;j++){const f=(t*.53+j/12+i*.17)%1;
           stream.set(j,-.25+.92*f,.08+.65*Math.sin(Math.PI*f)+.23*f,.19,.065,color,Math.sin(Math.PI*f));}
         stream.commit();
@@ -283,9 +301,12 @@ export default {
     // synthesis: new enzymes appear around the nucleus and walk out to the cytosol
     const syn = this.syn.v;
     if (M.syn) { this.acc2 = (this.acc2 || 0) + dt * 3.2; while (this.acc2 > 1) { this.acc2--; const a = this.free(); if (a) { a.st = 1; a.mit = false; this.cell.randomInside(R, a.home); a.p.copy(this.cell.nucleus.position); a.s = 0; } } }
-    for (let i = 0; i < 60; i++) { const ang = i / 60 * 6.28 + t * .6, r = .75 + .1 * Math.sin(t * 3 + i); const np = this.cell.nucleus.position;
-      this.synth.set(i, np.x + Math.cos(ang) * r, np.y + Math.sin(ang * 2) * .2, np.z + Math.sin(ang) * r, .07, this.cCyt, syn * (.45 + .4 * Math.sin(t * 4 + i))); }
-    this.synth.commit();
+    this.synth.mesh.visible = syn > .001;
+    if (this.synth.mesh.visible) {
+      for (let i = 0; i < 60; i++) { const ang = i / 60 * 6.28 + t * .6, r = .75 + .1 * Math.sin(t * 3 + i); const np = this.cell.nucleus.position;
+        this.synth.set(i, np.x + Math.cos(ang) * r, np.y + Math.sin(ang * 2) * .2, np.z + Math.sin(ang) * r, .07, this.cCyt, syn * (.45 + .4 * Math.sin(t * 4 + i))); }
+      this.synth.commit();
+    }
     // release: from the intact cell (basal, pores, synthesis), or a trickle from the damaged tissue after necrosis
     this.acc += dt * M.rate;
     while (this.acc > 1) { this.acc--;
@@ -304,12 +325,15 @@ export default {
       n--; }
     this.N = n; this.Ns = damp(this.Ns, n, 3, dt);
     // move + draw
+    // The cell pose is shared by every agent for the duration of this frame.
+    this.cell.group.updateWorldMatrix(true, false);
+    for (const mito of this.cell.mitos) mito.updateWorldMatrix(false, false);
     let idx = 0, arrived = 0;
     for (let i = 0; i < MAX; i++) {
       const a = this.A[i]; if (a.st === 0) continue;
       let col = a.mit ? this.cMit : this.cCyt;
-      if (a.st === 1) { a.s = Math.min(1, a.s + dt * 1.5); a.p.lerp(a.home, Math.min(1, dt * 1.2)); this.tmp.set(a.p.x + Math.sin(t * .9 + a.ph) * .06, a.p.y + Math.cos(t * .8 + a.ph) * .06, a.p.z + Math.sin(t * .7 + a.ph) * .06); this.cell.group.localToWorld(this.tmp); }
-      else if (a.st === 2) { a.s = Math.min(1, a.s + dt); this.tmp.copy(a.home); this.tmp.x += Math.sin(t + a.ph) * .05; a.m.localToWorld(this.tmp); }
+      if (a.st === 1) { a.s = Math.min(1, a.s + dt * 1.5); a.p.lerp(a.home, Math.min(1, dt * 1.2)); this.tmp.set(a.p.x + Math.sin(t * .9 + a.ph) * .06, a.p.y + Math.cos(t * .8 + a.ph) * .06, a.p.z + Math.sin(t * .7 + a.ph) * .06); this.tmp.applyMatrix4(this.cell.group.matrixWorld); }
+      else if (a.st === 2) { a.s = Math.min(1, a.s + dt); this.tmp.copy(a.home); this.tmp.x += Math.sin(t + a.ph) * .05; this.tmp.applyMatrix4(a.m.matrixWorld); }
       else if (a.st === 3) {
         a.t += dt * .42; if (a.t < 0) { this.tmp.copy(a.from); }
         else { const k = Math.min(1, a.t);
@@ -343,7 +367,11 @@ export default {
     // fluxes: measured arrivals (smoothed over ~3 s) vs removal = k × amount in the plasma
     const tau = 1.5; this.inR = this.inR * Math.exp(-dt / tau) + arrived / tau;
     this.inD = damp(this.inD, this.inR, 2, dt); this.outD = damp(this.outD, kk * this.Ns, 2, dt);
-    this.bIn.style.transform = 'scaleX('+clamp(this.inD/FMAX).toFixed(3)+')'; this.bOut.style.transform = 'scaleX('+clamp(this.outD/FMAX).toFixed(3)+')';
+    // The bars are 330 design pixels wide; subpixel changes need no style write.
+    const inWidth = Math.round(330 * clamp(this.inD / FMAX));
+    const outWidth = Math.round(330 * clamp(this.outD / FMAX));
+    if (inWidth !== this.lastInWidth) { this.bIn.style.transform = 'scaleX('+inWidth/330+')'; this.lastInWidth = inWidth; }
+    if (outWidth !== this.lastOutWidth) { this.bOut.style.transform = 'scaleX('+outWidth/330+')'; this.lastOutWidth = outWidth; }
     // verdict: arrival vs removal as drawn by the bars. A tight threshold (a gap of ~10 % already reads as rising /
     // falling, which is what the strip chart shows) with hysteresis and a short hold, so basal noise never flickers it.
     const diff = this.inD - this.outD, mx = Math.max(this.inD, this.outD), on = .08 * mx + .25, off = .03 * mx + .15;
@@ -360,7 +388,7 @@ export default {
       this.bVerdict.innerHTML = v === 'up' ? `iristea <b style="color:var(--coral)">&gt;</b> desagertzea → <b style="color:var(--coral)">igotzen</b>`
         : v === 'down' ? `iristea <b style="color:var(--blue)">&lt;</b> desagertzea → <b style="color:var(--blue)">jaisten</b>`
           : `iristea <b style="color:var(--ink)">≈</b> desagertzea → <b style="color:var(--amber)">oreka</b>`; }
-    this.tube.material.opacity = .05 + clamp(this.inD / FMAX) * .4;
+    this.tube.material.opacity = .12 + clamp(this.inD / FMAX) * .42;
     // pool + meter + strip chart all read the same amount
     const lvl = clamp(this.Ns / FULL);
     const depth=.42+.58*clamp(lvl); this.liquid.scale.y=depth;
@@ -368,7 +396,12 @@ export default {
     this.surf.position.y=POOL.y0+(POOL.y1-POOL.y0)*depth+.04;
     this.liquid.material.uniforms.uI.value = .25 + lvl * .5; this.surf.material.opacity = .15 + lvl * .3;
     const dr = this.drainR.v; this.pipe.scale.set(dr, 1, dr); this.valve.scale.setScalar(.6 + dr * .4);
-    this.fill.style.height = (lvl * (SH - 8)).toFixed(1) + 'px';
+    const levelHeight = Math.round(lvl * SH);
+    if (levelHeight !== this.lastLevelHeight) {
+      this.fill.setAttribute('height', levelHeight);
+      this.fill.setAttribute('y', SH - levelHeight);
+      this.lastLevelHeight = levelHeight;
+    }
     this.hAcc += dt;
     if (this.hAcc >= DTS) { this.hAcc -= DTS; if (this.hn === NS) { this.hist.copyWithin(0, 1); this.hn--; } this.hist[this.hn++] = lvl; this.drawStrip(); }
     this.labs[0].vis = 1 - clamp(sh * 2.5); this.labs[1].vis = clamp(sh * 2.5 - 1.2); // the healthy-cell label hands over to the necrotic one

@@ -55,6 +55,7 @@ function updateChrome() {
 
 // ---------------------------------------------------------------- navigation
 function setBeat(b, dir) {
+  bridge?.clearQuestion();
   stageTools.clearGesture();stageTools.ink.replaceChildren();
   if (!cur) return;
   state.bi = b;
@@ -70,9 +71,10 @@ function goSlide(si, bi, dir) {
   state.swap = { si, bi, dir };
 }
 function doSwap() {
+  bridge?.clearQuestion();
   const { si, bi, dir } = state.swap; state.swap = null;
   stageTools.clearGesture();stageTools.ink.replaceChildren();
-  if (bridge?.active) bridge.finish();
+  if (bridge?.active) bridge.finish(false);
   const from = cur, fromIdx = state.si;
   if (from) { from.layer.classList.remove('cur'); from.layer.classList.add('out'); }
   cur = SLIDES[si]; state.si = si; state.bi = bi;
@@ -102,7 +104,7 @@ function usesBloom(s){return ['title','measure','marker','electro'].includes(s.i
 function bloomFor(s) { return s.id === 'electro' ? .3 : Math.min(.18,Math.max(.10,(s.bloom ?? .5)*.26)); }
 function next() {
   if (state.t0 == null) state.t0 = performance.now();
-  if (bridge?.active) bridge.finish(); // pressing on during a bridge lands it at once, then moves on as usual
+  if (bridge?.active) bridge.finish(state.si === SLIDES.length - 1 && state.bi === SLIDES[state.si].beats - 1);
   const s = state.swap ? SLIDES[state.swap.si] : SLIDES[state.si];
   const b = state.swap ? state.swap.bi : state.bi;
   const si = state.swap ? state.swap.si : state.si;
@@ -111,7 +113,7 @@ function next() {
 }
 function prev() {
   if (state.swap) return;
-  if (bridge?.active) bridge.finish();
+  if (bridge?.active) bridge.finish(false);
   if (state.bi > 0) setBeat(state.bi - 1, -1); else if (state.si > 0) goSlide(state.si - 1, SLIDES[state.si - 1].beats - 1, -1);
 }
 function afterChange() {
@@ -209,9 +211,10 @@ function frame(now,draw=true) {
   clock.dt = dt; clock.t += dt; U.time.value = clock.t;
   textTick();
   if (!cur) { if (state.swap) doSwap(); return; }
+  bridge.updateQuestion(clock.t);
   renderedBridge=!!bridge.active;
   if (renderedBridge) {
-    bridge.frame(dt, clock.t); // updates and draws both slides (the incoming one through the composer)
+    bridge.frame(dt, clock.t, draw);
   } else {
     cur.update && cur.update(dt, clock.t);
     const cam = cur.camera;

@@ -9,7 +9,7 @@ import { makeTrace, TRACE } from './s00_trace.js';
 const _bf = new THREE.Vector3(); // scratch vector for the bridge focus
 
 const V = (x, y, z) => new THREE.Vector3(x, y, z);
-const LOUPE_R = 1.3, DIVE_D = 2.15; // loupe radius (world) and how many screen heights it fills when the view switches to the micro scene
+const LOUPE_R = 1.41, DIVE_D = 2.15; // loupe radius (world) and how many screen heights it fills when the view switches to the micro scene
 
 const CSS = `
 [data-slide="title"] .cvT { position:absolute; left:120px; top:286px; width:1040px; }
@@ -19,19 +19,14 @@ const CSS = `
 [data-slide="title"] .cvT h1 { margin:40px 0 0; font:400 92px/1.04 var(--serif); letter-spacing:-1.6px; color:var(--ink); }
 [data-slide="title"] .cvT h1 em { font-style:italic; color:var(--amber); letter-spacing:-1px; }
 [data-slide="title"] .cvT .ln { display:block; overflow:hidden; padding:0 0 .12em; margin-bottom:-.12em; }
-[data-slide="title"] .cvT .ln > span { display:inline-block; transform:translateY(108%); transition:transform 1.15s cubic-bezier(.2,.85,.15,1); }
-[data-slide="title"] .cvT.on .ln > span { transform:none; }
-[data-slide="title"] .cvT.on .ln.l1 > span { transition-delay:.35s; } [data-slide="title"] .cvT.on .ln.l2 > span { transition-delay:.5s; }
-[data-slide="title"] .cvT .cvsub { margin-top:34px; font:400 33px/1.35 var(--sans); color:var(--ink2); }
-[data-slide="title"] .cvT .rule { width:72px; height:1.5px; margin:52px 0 26px; background:rgba(20,32,51,.22); transform-origin:0 50%; }
+[data-slide="title"] .cvT .l1 { font-size:.83em; letter-spacing:-.03em; }
+[data-slide="title"] .cvT .l2 { font-size:1.05em; letter-spacing:-.04em; }
+[data-slide="title"] .cvT .ln > .fx { display:inline-block; transform:translateY(calc(var(--ro) * 104%)); }
+[data-slide="title"] .cvT .cvsub { margin-top:30px; max-width:810px; text-wrap:balance; font:400 32px/1.32 var(--sans); color:var(--ink2); }
+[data-slide="title"] .cvT .rule { width:98px; height:2px; margin:40px 0 22px; background:rgba(20,32,51,.22); transform-origin:0 50%; }
 [data-slide="title"] .cvT .names { font:500 23px/1.55 var(--sans); color:var(--ink2); letter-spacing:.2px; }
-[data-slide="title"] .cvT .names span { color:var(--amber); margin:0 9px; }
-[data-slide="title"] .cvT .eb, [data-slide="title"] .cvT .cvsub, [data-slide="title"] .cvT .rule, [data-slide="title"] .cvT .names { opacity:0; transform:translateY(14px); transition:opacity .9s, transform 1s cubic-bezier(.2,.8,.2,1); }
-[data-slide="title"] .cvT.on .eb { opacity:1; transform:none; transition-delay:.2s; }
-[data-slide="title"] .cvT.on .cvsub { opacity:1; transform:none; transition-delay:.8s; }
-[data-slide="title"] .cvT.on .rule { opacity:1; transform:none; transition-delay:1.05s; }
-[data-slide="title"] .cvT.on .names { opacity:1; transform:none; transition-delay:1.2s; }
-[data-slide="title"] .cvT:not(.on) * { transition-delay:0s !important; }
+[data-slide="title"] .cvT .names .author { display:inline-block; }
+[data-slide="title"] .cvT .names i { font-style:normal; color:var(--amber); margin:0 9px; }
 [data-slide="title"] .cv-tag { position:absolute; left:0; top:0; will-change:transform; white-space:nowrap; }
 [data-slide="title"] .cv-plasma { font:500 22px/1 var(--mono); letter-spacing:.16em; text-transform:uppercase; color:var(--ink2); text-shadow:var(--halo); }
 [data-slide="title"] .cv-plasma::after { content:''; position:absolute; left:calc(100% + 12px); top:50%; width:40px; height:1px; background:rgba(20,32,51,.35); }
@@ -74,6 +69,10 @@ function rimMat() {
         float prof = sin(t * 3.14159);
         vec3 dark = vec3(.30, .36, .47), lite = vec3(.97, .98, 1.);
         vec3 col = mix(dark, lite, clamp(.45 + .45 * l * (1. - 2. * t) + .35 * prof, 0., 1.));
+        float theta = atan(vP.y, vP.x);
+        float ticks = abs(fract(theta * 48. / 6.283185 + .5) - .5);
+        float mark = (1. - smoothstep(.045, .12, ticks)) * smoothstep(.30, .43, t) * (1. - smoothstep(.78, .88, t));
+        col = mix(col, vec3(.18,.24,.32), mark * .8);
         float a = (.55 + .45 * prof) * smoothstep(0., .08, t) * (1. - smoothstep(.9, 1., t));
         a = max(a, (1. - smoothstep(0., .12, t)) * .7);
         gl_FragColor = vec4(col, a * uO); }`,
@@ -111,7 +110,7 @@ export default {
     const rtOpt = { type: THREE.HalfFloatType, samples: 4, depthBuffer: true };
     this.rtLo = new THREE.WebGLRenderTarget(576,576,{...rtOpt,samples:0});
     const loupe = new THREE.Group(); scene.add(loupe); this.loupe = loupe;
-    this.Lc = V(4.72, .62, .9);
+    this.Lc = V(4.58, .62, .9);
     this.disc = new THREE.Mesh(new THREE.CircleGeometry(LOUPE_R, 128), discMat(this.rtLo.texture)); this.disc.renderOrder = 5; loupe.add(this.disc);
     this.rim = new THREE.Mesh(new THREE.RingGeometry(LOUPE_R * .995, LOUPE_R * 1.06, 160, 1), rimMat()); this.rim.renderOrder = 6; loupe.add(this.rim);
     const lsh = contactShadow({ size: LOUPE_R * 2.7, opacity: .2, billboard: true }); lsh.position.set(.12, -.28, -.3); loupe.add(lsh); this.lsh = lsh;
@@ -134,12 +133,12 @@ export default {
 
     // ---- DOM
     add(layer, `<style>${CSS}</style>`);
-    add(layer, `<div class="cvT fx fade" data-b="-0">
-      <div class="eb"><i></i>Oinarrizko Biokimika <b>/</b> B.1 atala</div>
-      <h1><span class="ln l1"><span>Entzimen neurketaren</span></span><span class="ln l2"><span><em>balioa</em> diagnostikoan</span></span></h1>
-      <div class="cvsub">Entzima plasmatikoak egoera fisiologiko eta patologikoetan</div>
-      <div class="rule"></div>
-      <div class="names">Eneritz Baranda<span>·</span>Urtzi Castillo<span>·</span>Ane Hormaetxe<span>·</span>Nora Navascues<span>·</span>Aitor Alboniga</div>
+    add(layer, `<div class="cvT">
+      <div class="eb fx fade" data-b="0-0"><i></i>Oinarrizko Biokimika <b>/</b> B.1 atala</div>
+      <h1><span class="ln l1"><span class="fx d1" data-b="0-0">Entzimen neurketaren</span></span><span class="ln l2"><span class="fx d2" data-b="0-0"><em>balioa</em> diagnostikoan</span></span></h1>
+      <div class="cvsub fx d3" data-b="0-0">Entzima plasmatikoak egoera fisiologiko eta patologikoetan</div>
+      <div class="rule fx d4" data-b="0-0"></div>
+      <div class="names fx d5" data-b="0-0"><span class="author">Eneritz Baranda</span><i>·</i><span class="author">Urtzi Castillo</span><i>·</i><span class="author">Ane Hormaetxe</span><i>·</i><span class="author">Nora Navascues</span><i>·</i><span class="author">Aitor Alboniga</span></div>
     </div>`);
     this.plasmaTag = add(layer, `<div class="cv-tag pin fx fade d4" data-b="-0"><div class="cv-plasma" style="position:absolute;transform:translate(-100%,-50%)">plasma</div></div>`);
     this.legTag = add(layer, `<div class="cv-tag pin fx fade d6" data-b="-0"><div class="cv-leg" style="position:absolute;transform:translate(-50%,0)">
