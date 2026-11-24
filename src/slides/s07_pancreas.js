@@ -110,6 +110,7 @@ export default {
     const y=b===2 ? -.29 : .11, x=b===2 ? -.38 : -.24;
     this.rig.go(V(x,y,9.65),V(x,y,0),2.2,34);
     const Ct = this.ch.curT, A = this.a.reveal, L = this.l.reveal; this.b = b;
+    this.ch.sampledCurves=b>=1?2:1;
     this.onA.to(1, .5); this.onL.to(b >= 1 ? 1 : 0, inst ? .01 : .5);
     if (b === 0) {
       L.to(0, inst ? .01 : .5);
@@ -130,7 +131,7 @@ export default {
   update(dt, t) {
     this.rig.update(t); this.S.dust.update(t);
     this.ch.update();
-    const tc = this.ch.curT.v, oa = this.onA.v, ol = this.onL.v;
+    const tc = this.ch.sampleTime, oa = this.onA.v, ol = this.onL.v;
     const va = AM.A(tc), vl = ol > .5 ? LM.A(tc) : LM.params.base;
     // flows at the cursor time
     this.flow.emit(this.sAin, 20 * AM.rel(tc) / RA * oa, dt); this.flow.emit(this.sAout, 20 * AM.elim(tc) / RA * oa, dt);

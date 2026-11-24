@@ -8,6 +8,8 @@ import { prepareLayer, tick as textTick } from './type.js';
 import { prepareLOD, setLOD } from './lod.js';
 import { Bridge } from './bridge.js';
 
+import { StageTools } from './stage_tools.js';
+
 applyTheme();
 
 const stage = document.getElementById('stage');
@@ -53,6 +55,7 @@ function updateChrome() {
 
 // ---------------------------------------------------------------- navigation
 function setBeat(b, dir) {
+  stageTools.clearGesture();stageTools.ink.replaceChildren();
   if (!cur) return;
   state.bi = b;
   if (staticImage) { showStill(); afterChange(); return; }
@@ -68,6 +71,7 @@ function goSlide(si, bi, dir) {
 }
 function doSwap() {
   const { si, bi, dir } = state.swap; state.swap = null;
+  stageTools.clearGesture();stageTools.ink.replaceChildren();
   if (bridge?.active) bridge.finish();
   const from = cur, fromIdx = state.si;
   if (from) { from.layer.classList.remove('cur'); from.layer.classList.add('out'); }
@@ -112,6 +116,7 @@ function prev() {
 }
 function afterChange() {
   updateChrome();
+  stage.classList.toggle('can-sample',Boolean(stageTools.getPlot()));
   // the URL write can make the host re-style the page: do it once things are calm, never mid-bridge
   const previous = location.hash, target = `#${state.si + 1}.${state.bi + 1}`;
   clearTimeout(urlT);
@@ -124,7 +129,29 @@ let urlT;
 let digits = '';
 const jump = document.body.appendChild(h('<div id="jump"></div>'));
 function handleKey(e) {
-  const k = e.key;
+  const k = e.key, letter = k.toLowerCase();
+  if((e.ctrlKey||e.metaKey)&&letter==='z'&&stageTools.mode==='d'){
+    e.preventDefault();stageTools.clearGesture();stageTools.ink.lastElementChild?.remove();return;
+  }
+  if (e.ctrlKey || e.metaKey || e.altKey) return;
+  if (letter==='o') { e.preventDefault(); if(!e.repeat)stageTools.showMap(); return; }
+  if (stageTools.map.open) {
+    if(k==='Escape'){e.preventDefault();stageTools.map.close();}
+    return;
+  }
+  if(e.shiftKey && (k==='ArrowLeft' || k==='ArrowRight')){
+    e.preventDefault();stageTools.nudge(k==='ArrowRight'?1:-1);return;
+  }
+  if (letter==='l'||letter==='s'||letter==='c'||letter==='d') {
+    e.preventDefault();
+    if(!e.repeat){
+      if(letter==='c'){document.body.classList.toggle('projector'); U.projector.value=Number(document.body.classList.contains('projector'));}
+      else stageTools.toggle(letter);
+      presenter.syncTools();
+    }
+    return;
+  }
+  if(k==='Escape'){stageTools.clearGesture();stageTools.ink.replaceChildren();stageTools.toggle('');presenter.syncTools();}
   if (['ArrowRight', 'PageDown', ' ', 'ArrowDown'].includes(k) || (k === 'Enter' && !digits)) { e.preventDefault(); next(); return; }
   if (['ArrowLeft', 'PageUp', 'ArrowUp', 'Backspace'].includes(k)) { e.preventDefault(); prev(); return; }
   if (k === 'Home') { goSlide(0, 0, -1); return; }
@@ -144,10 +171,20 @@ function handleKey(e) {
 addEventListener('keydown', handleKey);
 addEventListener('resize', fit);
 stage.addEventListener('click', () => next());
-addEventListener('contextmenu', e => { e.preventDefault(); prev(); });
+addEventListener('contextmenu', e => { if(!stageTools.map.open){e.preventDefault();prev();} });
 let idle; addEventListener('mousemove', () => { document.body.classList.remove('hidecursor'); clearTimeout(idle); idle = setTimeout(() => document.body.classList.add('hidecursor'), 1800); });
 
-const presenter = new Presenter({ slides: SLIDES, notes: NOTES, chapters: CHAPTERS, onKey: handleKey, getState: () => state });
+const stageTools = new StageTools(stage,SLIDES,CHAPTERS,()=>state,goSlide,()=>{
+  if(staticImage || !cur?.ch) return null;
+  if(cur.id === "kinetics" && (state.bi===0 || state.bi===6))return null;
+  if(cur.id === "infarct" && state.bi < 2) return null;
+  return ["kinetics","pancreas","infarct"].includes(cur.id)?cur.ch:null;
+},()=>Boolean(bridge?.active||state.swap),()=>{
+  if(staticImage || !cur?.rig)return null;
+  const inspectable=cur.id==='tissues'||(['ck','ldh'].includes(cur.id)&&state.bi===0)||(cur.id==='infarct'&&state.bi<2);
+  return inspectable?cur.rig:null;
+});
+const presenter = new Presenter({ stageTools, slides: SLIDES, notes: NOTES, chapters: CHAPTERS, onKey: handleKey, getState: () => state });
 
 // ---------------------------------------------------------------- main loop
 let last = performance.now(); let grabName = null;

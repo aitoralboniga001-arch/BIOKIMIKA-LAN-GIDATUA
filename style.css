@@ -191,6 +191,41 @@ svg.chart text { font-family: var(--sans); font-variant-numeric: tabular-nums; p
 .idx-i.on { color: var(--ink); font-weight: 600; } .idx-i.on .n { color: var(--gc); } .idx-i.on::before { transform: scaleY(1); }
 .idx-i.dim { opacity: .42; }
 
+/* Live presentation tools. Only the open map participates in hit testing. */
+.stage-ink {position:absolute;inset:0;width:100%;height:100%;z-index:8;pointer-events:none;}
+.stage-ink path {fill:none;stroke:var(--acc,#954323);stroke-width:5;stroke-linejoin:round;stroke-linecap:round;}
+#stage.pen-active {cursor:crosshair;touch-action:none;}
+.stage-pointer { position:absolute; inset:0; z-index:9; pointer-events:none; display:none; }
+.stage-pointer[data-mode="s"] {display:block;background:radial-gradient(circle at var(--px) var(--py),transparent 0 122px,rgba(14,20,33,.49) 235px);}
+.stage-pointer[data-mode="l"] {display:block;}
+.stage-pointer[data-mode="l"]::before {content:"";position:absolute;left:var(--px);top:var(--py);width:15px;height:15px;transform:translate(-50%,-50%);border:2px solid white;border-radius:50%;background:#ae362c;box-shadow:0 0 0 7px rgba(174,54,44,.20),0 1px 5px #713c32;}
+body.projector {--ink2:#253249;--mute:#364253;--line:rgba(20,32,51,.36);}
+body.projector .layer .lab.bg .t {background:#fff;outline:1.5px solid #8b929c;}
+body.projector .chart text {paint-order:stroke;stroke:white;stroke-width:5.5px;}
+body.projector #stage img {filter:contrast(1.09);}
+.sample-readout {display:none;position:absolute;gap:34px;align-items:baseline;font:500 23px/1.25 var(--sans);color:var(--ink2);}
+.sample-readout > span:not([hidden]) {display:flex;align-items:baseline;gap:10px;}
+.sample-readout b {font:500 29px/1 var(--serif);}
+.sampling-time .cur .sample-readout {display:flex;}
+.time-hint {display:none;}
+.can-sample .cur .time-hint {display:block;}
+#stage.can-sample {touch-action:none;}
+#stage.sampling-time .time-hint {display:none;}
+#stage.sampling-time { cursor:ew-resize; }
+#stage.sampling-time .cur .key,#stage.sampling-time .cur .guide-only {visibility:hidden;}
+#stage { touch-action:manipulation; }
+.talk-map { width:min(1120px,94vw); max-height:88vh; padding:0 24px 24px; color:var(--ink); background:#faf9f5; border:1px solid #babcc1; border-radius:12px; box-shadow:0 16px 70px #14203342; }
+.talk-map::backdrop {background:rgba(18,27,43,.58);}
+.talk-map header {display:flex;align-items:center;justify-content:space-between;position:sticky;top:0;background:#faf9f5;z-index:1;border-bottom:1px solid #c4c6ca;padding:15px 0;}
+.talk-map h2 {font:400 34px/1 var(--serif);margin:0;}
+.talk-map button {font:500 14px/1 var(--sans);color:var(--ink);cursor:pointer;background:transparent;border:1px solid #aeb2b9;border-radius:4px;padding:7px;}
+.talk-map h3 {font:500 24px/1.1 var(--serif);margin:24px 0 12px;}
+.map-row {display:grid;grid-template-columns:repeat(auto-fill,minmax(96px,1fr));gap:8px;margin:12px 0 16px;}
+.map-row h4 {grid-column:1/-1;margin:0;color:var(--ink2);font:600 14px/1.3 var(--sans);}
+.map-row button {padding:0;overflow:hidden;position:relative;aspect-ratio:16/9;}
+.map-row img {width:100%;height:100%;display:block;}
+.map-row span {position:absolute;bottom:0;left:0;padding:3px 5px;background:#faf9f5e8;font:500 12px var(--mono);}
+.map-row button[aria-current],.map-row button:focus-visible {outline:3px solid #97521e;outline-offset:1px;}
 /* Tissue atlas: the active specimen and its possible sources share a reading axis. */
 .atlas-index { position:absolute; left:96px; top:236px; width:400px; }
 .atlas-row { position:relative; height:74px; display:flex; align-items:center; justify-content:space-between;

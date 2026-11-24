@@ -208,12 +208,15 @@ function molPatch(mat, { atoms = 4.2, relief = 1, cavity = 1, radius = .5, extra
   const u = { uAtoms: { value: atoms }, uRelief: { value: relief }, uCavity: { value: cavity }, uMolInvR: { value: 1 / radius } };
   mat.userData.mol = u;
   mat.onBeforeCompile = (s) => {
-    Object.assign(s.uniforms, u);
+    Object.assign(s.uniforms, u, {uProjector:U.projector});
     s.vertexShader = MOL_VERT_PARS + s.vertexShader.replace('#include <project_vertex>', '#include <project_vertex>' + MOL_VERT);
-    let f = MOL_FRAG_PARS + s.fragmentShader
+    let f = "uniform float uProjector;\n" + MOL_FRAG_PARS + s.fragmentShader
       .replace('#include <color_fragment>', '#include <color_fragment>' + MOL_FRAG_COLOR)
       .replace('#include <normal_fragment_maps>', '#include <normal_fragment_maps>' + MOL_FRAG_NORMAL)
-      .replace('#include <aomap_fragment>', '#include <aomap_fragment>' + MOL_FRAG_AO);
+      .replace('#include <aomap_fragment>', '#include <aomap_fragment>' + MOL_FRAG_AO)
+      .replace('#include <opaque_fragment>', `float contour=pow(1.-clamp(abs(dot(normalize(normal),normalize(vViewPosition))),0.,1.),2.5);
+        outgoingLight*=1.-contour*(.12+.27*uProjector);
+        #include <opaque_fragment>`);
     if (extraFrag) f = extraFrag(f, s);
     s.fragmentShader = f;
   };
@@ -340,8 +343,11 @@ export function bloodTube({ r = .5, h = 3.4, red = .38, cap = '#B98A2E', label =
   const plasmaGeo = new THREE.CylinderGeometry(ri, ri, yTop - yRed - .05, 48, 1, true);
   const plasmaMat = liquidMat(COL3.plasma);
   const plasma = new THREE.Mesh(plasmaGeo, plasmaMat); plasma.position.y = (yTop + yRed + .05) / 2; g.add(plasma);
-  const surf = new THREE.Mesh(new THREE.CircleGeometry(ri, 48), new THREE.MeshBasicMaterial({ color: C(COL3.plasma), transparent: true, opacity: .35, depthWrite: false }));
-  surf.rotation.x = -Math.PI / 2; surf.position.y = yTop; g.add(surf);
+  const lip = [1,.96,.88,.72,.001].map(rho => new THREE.Vector2(ri*rho,.047*ri*Math.pow(rho,9)));
+  const surf = new THREE.Mesh(new THREE.LatheGeometry(lip,48), new THREE.MeshStandardMaterial({
+    color:C(COL3.plasma),roughness:.23,envMapIntensity:.8,transparent:true,opacity:.45,depthWrite:false,side:THREE.DoubleSide
+  }));
+  surf.position.y = yTop; g.add(surf);
   // cap
   const capG = new THREE.Group(); capG.position.y = h - .05;
   const capMat = new THREE.MeshPhysicalMaterial({ color: C(cap), roughness: .55, clearcoat: .4, envMapIntensity: .35 });
@@ -439,6 +445,7 @@ export function membraneMat({ color = COL3.membrane, fill = COL3.cyto, additive 
         float lit = .84 + .16 * clamp(dot(N, normalize(vec3(.4, .7, .6))), 0., 1.);
         vec3 body = mix(uF, vec3(1.), .5);
         vec3 col = mix(body, uC, smoothstep(.0, .6, rim)) * lit * (.95 + .08 * mot + .06 * grain);
+        col += vec3(.024,.056,.062) * rim * (.55+.45*mot);
         col = mix(col, uC * .85, leaf * .6);
         col = mix(col, uC * .62, edge * .85);
         float a = clamp(.07 + .07 * mot + rim * 1.05 + leaf * .3 + edge * .8, 0., 1.) * fade;

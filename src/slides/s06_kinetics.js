@@ -253,6 +253,7 @@ export default {
     this.ch.curOn.to(b >= 1 && b <= 5 ? 1 : 0, .5);
     this.ch.curTag.textContent = b <= 3 ? 'orain' : b === 4 ? 'lagin goiztiarra' : b === 5 ? 'lagin berantiarra' : '';
     this.probe.setAttribute('opacity', b === 0 || b >= 4 ? 1 : 0);
+    this.pTag.classList.add('guide-only');
     this.pTag.textContent = b === 0 ? 'lagina' : '';
   },
   update(dt, t) {
@@ -263,10 +264,10 @@ export default {
       if (i !== this.i6) { this.i6 = i; this.ch.curT.to(SAMPLES[i], .7, ease.io); this.pTag.textContent = `${i + 1}. lagina`; }
     }
     this.ch.update();
-    const tc = this.ch.curT.v, A = M.A(tc), rel = M.rel(tc), elim = M.elim(tc), on = this.flowOn.v;
+    const tc = this.ch.sampleTime, A = M.A(tc), rel = M.rel(tc), elim = M.elim(tc), on = this.flowOn.v;
     this.chartSpace.position.copy(this.camera.position);this.chartSpace.quaternion.copy(this.camera.quaternion);
-    this.ribbon.geometry.setDrawRange(0,Math.ceil(clamp(this.c.reveal.v)*192)*24);
-    this.cursorTube.visible=this.ch.curOn.v>.05||this.b===0||this.b===6;this.curveAt(tc,A,this.cursorTube.position);this.clockHand.rotation.z=-tc*2*Math.PI;this.cursorTube.position.y+=A<.25?.69:.02;this.cursorTube.position.z+=.13;this.cursorTube.rotation.z=-.22;
+    this.ribbon.geometry.setDrawRange(0,Math.ceil(clamp(this.ch.scrub==null?this.c.reveal.v:1)*192)*24);
+    this.cursorTube.visible=this.ch.scrub!=null||this.ch.curOn.v>.05||this.b===0||this.b===6;this.curveAt(tc,A,this.cursorTube.position);this.clockHand.rotation.z=-tc*2*Math.PI;this.cursorTube.position.y+=A<.25?.69:.02;this.cursorTube.position.z+=.13;this.cursorTube.rotation.z=-.22;
     const follow=.22*(tc-.4);this.camera.position.x+=follow;this.chartSpace.position.x+=follow;
     this.flowArrows.forEach((arrow,i)=>{
       const gain=clamp((i?elim:rel)/RMAX);

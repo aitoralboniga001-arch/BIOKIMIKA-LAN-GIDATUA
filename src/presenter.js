@@ -30,6 +30,9 @@ main{display:grid;grid-template-columns:1.35fr .65fr;min-height:0}
 .cue b{color:var(--acc);font-weight:600}
 .nx{padding:24px 26px;overflow:auto}
 .nx img{display:block;width:100%;aspect-ratio:16/9;object-fit:cover;border-radius:10px;border:1px solid var(--line);background:var(--panel);margin-bottom:16px}
+#sample-keys{margin:-10px 0 20px;color:var(--mute);font:500 13px/1.4 Inter}
+.stage-actions{display:flex;gap:6px;margin:-6px 0 22px;flex-wrap:wrap}
+.stage-actions [aria-pressed=true]{color:var(--acc);border-color:var(--acc)}#current-preview{cursor:crosshair}
 .nx .cue{font-size:19px;line-height:1.45;color:var(--mute)} .nx .cue b{color:var(--ink)}
 footer{display:flex;gap:6px;padding:12px 26px 16px;border-top:1px solid var(--line);align-items:center}
 .seg{flex:1;height:32px;border-radius:7px;background:var(--panel);position:relative;overflow:hidden;font:600 12px/32px Inter;color:var(--mute);padding:0 10px;white-space:nowrap;text-overflow:ellipsis}
@@ -51,8 +54,8 @@ const mmss = s => `${s < 0 ? '−' : ''}${String(Math.floor(Math.abs(s) / 60)).p
 const LS = 'entzimak.rehearsal';
 
 export class Presenter {
-  constructor({ slides, notes, chapters, onKey, getState }) {
-    Object.assign(this, { slides, notes, chapters, onKey, getState }); this.w = null;
+  constructor({ slides, notes, chapters, onKey, getState, stageTools }) {
+    Object.assign(this, { slides, notes, chapters, onKey, getState, stageTools }); this.w = null;
     // per-beat target seconds: each chapter's budget spread over that chapter's beats
     this.beats = []; // { si, bi, ch, target, start } in talk order
     const chOf = s => Math.max(0, s.chapter);
@@ -78,11 +81,25 @@ export class Presenter {
       <button id="th" title="Gai argia / iluna">◐</button><button id="rst" title="Kronometroa berrabiarazi">⟲</button>
       <div><div class="clock"><div class="light-dot" id="dot"></div><div class="timer" id="tm">00:00</div></div><div class="target" id="tg"></div></div></header>
       <main><section class="now"><div class="lbl">Orain pantailan · esan</div><div class="cue" id="cue"></div></section>
-      <section class="nx"><div class="lbl">Hurrengo klika</div><img id="nimg" alt=""><div class="cue" id="nx"></div></section></main>
+      <section class="nx"><div class="lbl">Uneko lagina · erakutsi</div>
+      <img id="current-preview" draggable="false" alt="Uneko diapositiba">
+      <div class="stage-actions"><button data-key="l">Laserra</button><button data-key="s">Fokua</button><button data-key="c">Kontrastea</button></div>
+      <div id="sample-keys" hidden>Shift + ←/→ · laginaren unea &nbsp; Esc · gidoira itzuli</div>
+      <div class="lbl">Hurrengo klika</div><img id="nimg" alt=""><div class="cue" id="nx"></div></section></main>
       <footer id="ft"></footer><div id="rep"></div></body></html>`);
     w.document.close();
     const d = w.document;
-    d.addEventListener('keydown', e => this.onKey(e));
+    d.addEventListener('keydown', e => {
+      if(e.target.closest('button') && (e.key==='Enter'||e.key===' ')) return;
+      this.onKey(e);
+    });
+    const preview=d.getElementById('current-preview');
+    preview.onpointermove=e=>{
+      if(!this.stageTools.mode)return;
+      const r=preview.getBoundingClientRect();
+      this.stageTools.point((e.clientX-r.left)/r.width,(e.clientY-r.top)/r.height);
+    };
+    d.querySelectorAll('[data-key]').forEach(b=>b.onclick=()=>this.onKey({key:b.dataset.key,preventDefault(){}}));
     d.getElementById('rst').onclick = () => { this.getState().t0 = performance.now(); this.tick(); };
     d.getElementById('th').onclick = () => { d.body.classList.toggle('light'); try { localStorage.setItem('entzimak.presenterTheme', d.body.classList.contains('light') ? 'light' : 'dark'); } catch {} };
     try { if (localStorage.getItem('entzimak.presenterTheme') === 'light') d.body.classList.add('light'); } catch {}
@@ -90,6 +107,13 @@ export class Presenter {
     this.segs = this.chapters.map((c, i) => { const e = d.createElement('div'); e.className = 'seg'; e.innerHTML = `<i></i><span>${i + 1}. ${c} · ${BUDGET[i]}′</span>`; ft.appendChild(e); return e; });
     const k = d.createElement('div'); k.className = 'keys'; k.textContent = '→ hurrengoa · ← aurrekoa · B beltza · R entsegua'; ft.appendChild(k);
     clearInterval(this.iv); this.iv = setInterval(() => this.tick(), 500);
+  }
+  syncTools() {
+    if(!this.w || this.w.closed)return;
+    this.w.document.querySelectorAll('[data-key]').forEach(b=>{
+      const on=b.dataset.key==='c'?document.body.classList.contains('projector'):this.stageTools.mode===b.dataset.key;
+      b.setAttribute('aria-pressed',String(on));
+    });
   }
   cueOf(si, bi) {
     const s = this.slides[si]; if (!s) return '— amaiera —';
@@ -108,6 +132,11 @@ export class Presenter {
     let ns = state.si, nb = state.bi + 1; if (nb >= s.beats) { ns++; nb = 0; }
     const nslide = this.slides[ns];
     d.getElementById('nx').innerHTML = nslide ? (ns !== state.si ? `<b>▸ ${nslide.title}</b>\n` : '') + this.cueOf(ns, nb) : '— amaiera —';
+    const url=new URL(`fallback/${state.si+1}.${state.bi+1}.jpg`,location.href).href;
+    const current=d.getElementById('current-preview');
+    if(current.src!==url)current.src=url;
+    this.syncTools();
+    d.getElementById('sample-keys').hidden=!this.stageTools.getPlot();
     const img = d.getElementById('nimg');
     if (nslide) { img.style.display = ''; img.src = new URL(`fallback/${ns + 1}.${nb + 1}.jpg`, location.href).href; } else img.style.display = 'none';
     // who speaks, and a warning one click before the hand-over (only once the group has filled SPEAKERS in)

@@ -39,6 +39,7 @@ export class Chart {
     this.ax = new Tw(0); this.axOn = false;
     this.phases = el('g', {}, this.g);
     this.curvesG = el('g', {}, this.g);
+    this.phases.classList.add("guide-only");
     this.marksG = el('g', {}, this.g);
     this.curves = [];
     // cursor
@@ -52,7 +53,15 @@ export class Chart {
     el('path', { d: 'M5 18h12v14a6 6 0 0 1-12 0Z', fill: alpha(PAL.amber, .35), stroke: 'none' }, this.curTubeIcon);
     this.curTag = el('text', { y: h + 46, 'text-anchor': 'middle', 'font-size': 22, 'font-weight': 650, fill: INK }, this.cur);
     this.curDots = [];
+    this.scrub = null;
+    this.readout=add(layer,`<div class="sample-readout" style="left:${x}px;top:${y+h+112}px;width:${w}px"></div>`);
+    this.dragHint=el('text',{x:w,y:-14,'text-anchor':'end','font-size':20,fill:PAL.mute,class:'time-hint'},this.g);
+    this.dragHint.textContent='↔ Arrastatu lagina';
+    this.sampleLabel = el('text',{y:h+46,'text-anchor':'middle','font-size':22,'font-weight':650,fill:INK}, this.cur);
+    this.sampleLabel.textContent = 'Hautatutako lagina'; this.sampleLabel.style.display='none';
   }
+  get sampleTime() { return this.scrub ?? this.curT.v; }
+  extentOf(c) { return this.scrub == null ? c.reveal.v : Number(c.index < (this.sampledCurves ?? this.curves.length)); }
   X(t) { return t * this.w; }
   Y(v) { return this.h - v / this.ymax * this.h; }
   curve(fn, { color = PAL.coral, dash = null, width = 5, name = '', nameAt = .3, nameDy = -22 } = {}) {
@@ -68,8 +77,23 @@ export class Chart {
     // dashed curves: round caps grow each dash by the stroke width, so lengthen the gaps by the same amount
     if (dash) { const d2 = dash.split(/[ ,]+/).map((v, i) => i % 2 ? +v + width : Math.max(.1, +v - width * .5)).join(' '); p.setAttribute('stroke-dasharray', d2); glow.setAttribute('stroke-dasharray', d2); }
     const lab = el('text', { 'font-size': 26, 'font-weight': 700, fill: color, opacity: 0, 'letter-spacing': '-.2' }, this.curvesG); lab.textContent = name;
-    const c = { fn, p, glow, area, lab, extent, color, reveal: new Tw(0), nameAt, nameDy, last: -1, labA: 0 };
+    const c = { index:this.curves.length, fn, p, glow, area, lab, extent, color, reveal: new Tw(0), nameAt, nameDy, last: -1, labA: 0 };
     const dot = el('circle', { r: 9, fill: color, stroke: PAPER, 'stroke-width': 3 }, this.cur); this.curDots.push(dot);
+    // Estimate landmarks once from the same model that supplies the curve geometry.
+    let peak=0, crossing=null, last=fn(0);
+    for(let i=1;i<=240;i++){
+      const time=i/240, value=fn(time);
+      if(value>fn(peak))peak=time;
+      if(crossing===null && last<this.ref && value>=this.ref)
+        crossing=(i-1+(this.ref-last)/(value-last))/240;
+      last=value;
+    }
+    c.landmarks=[crossing,peak>0 && peak<1 ? peak:null].filter(v=>v!==null);
+    c.ring=el('circle',{fill:'none',stroke:color,'stroke-width':3,opacity:0},this.marksG);
+    c.pulseAt=-Infinity;
+    const item=document.createElement('span'), nameNode=document.createElement('b'), trend=document.createElement('span');
+    nameNode.textContent=name||'Jarduera'; nameNode.style.color=color;
+    item.append(nameNode,trend); this.readout.append(item); c.reading=item; c.trend=trend;
     this.curves.push(c); return c;
   }
   // shaded time window with a caption (for the rise / peak / fall phases)
@@ -103,7 +127,17 @@ export class Chart {
       this.ticks.setAttribute('opacity', Math.max(0, (a - .6) / .4).toFixed(3)); this.gridG.setAttribute('opacity', Math.max(0, (a - .4) / .6).toFixed(3));
     }
     for (const c of this.curves) {
-      const r = c.reveal.v;
+      const r = this.extentOf(c);
+      if(this.scrub==null && c.last>=0 && r>c.last && r-c.last<.09){
+        const event=c.landmarks.find(value=>value>c.last && value<=r);
+        if(event!==undefined){
+          c.pulseAt=clock.t;c.ring.setAttribute('cx',this.X(event));c.ring.setAttribute('cy',this.Y(c.fn(event)));
+        }
+      }
+      const age=(clock.t-c.pulseAt)/.72;
+      if(age<1 && r>=c.last && this.scrub==null){
+        c.ring.setAttribute('r',8+22*ease.out(age));c.ring.setAttribute('opacity',.76*(1-age));
+      }else if(c.pulseAt!==-Infinity){c.pulseAt=-Infinity;c.ring.setAttribute('opacity',0);}
       // the direct label fades in as the trace passes it (and out when the trace is withdrawn)
       const la = Math.max(0, Math.min(1, c.labA + (r > c.nameAt ? 1 : -1) * clock.dt / .35));
       if (la !== c.labA) { c.labA = la; c.lab.setAttribute('opacity', (la * la * (3 - 2 * la)).toFixed(3)); }
@@ -111,14 +145,26 @@ export class Chart {
       c.extent.setAttribute('width',r < .001 ? 0 : this.X(r)+7);
       c.lab.setAttribute('x', this.X(c.nameAt) + 14); c.lab.setAttribute('y', this.Y(c.fn(c.nameAt)) + c.nameDy);
     }
-    const o = this.curOn.v; this.cur.setAttribute('opacity', o.toFixed(3));
-    const t = this.curT.v, x = this.X(t);
+    if(this.scrub!=null){
+      for(const c of this.curves){
+        c.reading.hidden=this.extentOf(c)<=0;
+        const x=this.scrub, v=c.fn(x), delta=c.fn(Math.min(1,x+.006))-c.fn(Math.max(0,x-.006));
+        const trend=Math.abs(delta)<.002?'≈ egonkor':delta>0?'↗ igotzen':'↘ jaisten';
+        const label=(v>this.ref?'tartetik gora':'tartean')+' · '+trend;
+        if(c.trend.textContent!==label)c.trend.textContent=label;
+      }
+    }
+    const o = this.scrub!=null?1:this.curOn.v; this.cur.setAttribute('opacity', o.toFixed(3));
+    const t = this.sampleTime, x = this.X(t);
+    this.sampleLabel.style.display=this.scrub==null?'none':'';
+    if(this.scrub!=null)this.sampleLabel.setAttribute('x',Math.max(95,Math.min(this.w-95,x)));
+    this.curTag.style.display=this.scrub==null?'':'none';
     this.curLine.setAttribute('x1', x); this.curLine.setAttribute('x2', x); this.curTag.setAttribute('x', x);
     this.curLine.setAttribute('y1', (this.h - (this.h + 6) * ease.outQuint(o)).toFixed(1));
     const sample = this.sampleIcon && /lagin|goiztiar|berantiar/i.test(this.curTag.textContent);
     if (sample !== this.tubeShown) { this.tubeShown = sample; this.curTubeIcon.style.display = sample ? '' : 'none'; }
     if (sample) this.curTubeIcon.setAttribute('transform', `translate(${(x - 11).toFixed(1)},-50)`);
-    this.curves.forEach((c, i) => { const dot = this.curDots[i]; dot.setAttribute('cx', x); dot.setAttribute('cy', this.Y(c.fn(t))); dot.setAttribute('opacity', c.reveal.v >= t - .002 ? 1 : 0); });
+    this.curves.forEach((c, i) => { const dot = this.curDots[i]; dot.setAttribute('cx', x); dot.setAttribute('cy', this.Y(c.fn(t))); dot.setAttribute('opacity', this.extentOf(c) >= t - .002 ? 1 : 0); });
   }
   value(ci, t = this.curT.v) { return this.curves[ci].fn(t); }
 }

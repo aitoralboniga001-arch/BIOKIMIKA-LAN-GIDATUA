@@ -1,4 +1,5 @@
 import * as THREE from 'three';
+import { U } from './core.js';
 
 // The studio PMREM supplies elongated reflections. The glass transmits the existing scene by alpha blending.
 export function glassMat(color) {
@@ -44,6 +45,7 @@ export function liquidMat(color) {
 export function organMat(params) {
   const m = new THREE.MeshPhysicalMaterial(params);
   m.onBeforeCompile = (s) => {
+    s.uniforms.uProjector = U.projector;
     s.vertexShader =
       'varying vec3 tissueP;\n' +
       s.vertexShader.replace(
@@ -51,7 +53,7 @@ export function organMat(params) {
         '#include <begin_vertex>\n tissueP=position;',
       );
     s.fragmentShader =
-      'varying vec3 tissueP;\n' +
+      'uniform float uProjector; varying vec3 tissueP;\n' +
       s.fragmentShader
         .replace(
           '#include <color_fragment>',
@@ -67,7 +69,12 @@ export function organMat(params) {
         float wrapped=max(0.,(dot(normal,L)+.45)/1.45)-max(0.,dot(normal,L));
         float through=pow(clamp(dot(normalize(vViewPosition),normalize(-L+normal*.35)),0.,1.),3.);
         reflectedLight.directDiffuse += diffuseColor.rgb*(max(0.,wrapped)*.36 + through*vec3(.24,.07,.045));
-      #endif`,
+      #endif
+      reflectedLight.indirectDiffuse += diffuseColor.rgb*vec3(.085,.049,.022)*max(0.,-normal.y);`,
+        )
+        .replace('#include <opaque_fragment>', `float edge=pow(1.-clamp(abs(dot(normalize(normal),normalize(vViewPosition))),0.,1.),2.);
+        outgoingLight*=1.-edge*(.10+.28*uProjector);
+        #include <opaque_fragment>`,
         );
   };
   return m;

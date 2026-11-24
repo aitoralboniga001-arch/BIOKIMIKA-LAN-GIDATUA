@@ -19,7 +19,7 @@ THREE.ShaderChunk.tonemapping_pars_fragment = THREE.ShaderChunk.tonemapping_pars
 
 export const W = 1920, H = 1080;
 export const clock = { t: 0, dt: 0 };
-export const U = { pxScale: { value: 500 }, time: { value: 0 } }; // shared shader uniforms
+export const U = { projector: {value:0}, pxScale: { value: 500 }, time: { value: 0 } }; // shared shader uniforms
 
 // ---------------------------------------------------------------- renderer
 export let renderer, composer, renderPass, bloom, outputPass, envTex, fxaa;

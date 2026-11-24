@@ -1,10 +1,12 @@
 // Camera rig: eases between shots, adds a gentle hand-held drift.
-import { THREE, Tw, ease } from './core.js';
+import { THREE, Tw, ease, clock } from './core.js';
 
 export class CamRig {
   constructor(cam, pos, look, { drift = .03, fov } = {}) {
     this.cam = cam; this.drift = drift;
     this.p0 = pos.clone(); this.p1 = pos.clone(); this.l0 = look.clone(); this.l1 = look.clone();
+    this.inspectTarget = new THREE.Vector2(); this.inspectAngle = new THREE.Vector2();
+    this.inspectOffset = new THREE.Vector3(); this.inspectSphere = new THREE.Spherical();
     this.cp = pos.clone(); this.cl = look.clone();
     this.f0 = this.f1 = this.cf = fov || cam.fov; this.k = new Tw(1);
   }
@@ -27,6 +29,7 @@ export class CamRig {
   jump(pos, look, fov) { this.arc=null; this.p0.copy(pos); this.p1.copy(pos); this.l0.copy(look); this.l1.copy(look); if (fov) this.f0 = this.f1 = fov; this.k.set(1); this.cp.copy(pos); this.cl.copy(look); this.cf = this.f1; return this; }
   // arrive at a shot by flying in from slightly behind it
   arrive(pos, look, fov, back = 1.18, d = 2.2) {
+    this.inspectTarget.set(0,0); this.inspectAngle.set(0,0);
     const from = look.clone().add(pos.clone().sub(look).multiplyScalar(back));
     this.jump(from, look, fov); return this.go(pos, look, d, fov, ease.out);
   }
@@ -40,6 +43,13 @@ export class CamRig {
     }
     const c = this.cam; c.position.copy(this.cp);
     c.position.x += Math.sin(t * .23) * this.drift; c.position.y += Math.sin(t * .31 + 1) * this.drift * .7;
+    if(this.inspectTarget.lengthSq() || this.inspectAngle.lengthSq()){
+      this.inspectAngle.lerp(this.inspectTarget,1-Math.exp(-clock.dt*13));
+      if(this.inspectAngle.lengthSq()<1e-8 && !this.inspectTarget.lengthSq()) this.inspectAngle.set(0,0);
+      const sphere=this.inspectSphere.setFromVector3(this.inspectOffset.copy(c.position).sub(this.cl));
+      sphere.theta+=this.inspectAngle.x; sphere.phi+=this.inspectAngle.y; sphere.makeSafe();
+      c.position.copy(this.inspectOffset.setFromSpherical(sphere)).add(this.cl);
+    }
     c.lookAt(this.cl);
     if (Math.abs(c.fov - this.cf) > 1e-4) { c.fov = this.cf; c.updateProjectionMatrix(); }
   }

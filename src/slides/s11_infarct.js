@@ -90,6 +90,7 @@ export default {
   enter(b) { this.rig.arrive(V(0, .2, 10), V(0, .1, 0), 34); this.apply(b, true, 1); },
   beat(b, dir) { this.apply(b, false, dir); },
   apply(b, inst, dir = 1) {
+    this.ch.sampledCurves=b>=3?2:1;
     this.b = b; const d = inst ? .01 : 1.6, back = dir < 0;
     this.occ.to(b >= 1 ? 1 : 0, inst ? .01 : (back ? .8 : 2.4), ease.io);
     // going back to the centred heart: the read-outs leave first, then the heart moves (they never overlap)
@@ -109,7 +110,7 @@ export default {
   },
   update(dt, t) {
     this.rig.update(t); this.S.dust.update(t);
-    const tau = this.tau.v, b = this.b;
+    const tau = this.ch.scrub ?? this.tau.v, b = this.b;
     // heartbeat (lub-dub): atria first, then the ventricles; the ischaemic wall follows late and weakly (shader)
     const bt = t * 1.05, ph = bt % 1;
     const pulse = Math.exp(-Math.pow((ph - .1) / .06, 2)) + .55 * Math.exp(-Math.pow((ph - .32) / .07, 2));
@@ -124,17 +125,17 @@ export default {
     const o = this.occ.v;
     this.cutaway(dt,t,o,1-sd);
     // lesion progress: follows the clock while the infarct develops (beats 0–2), then never regresses when the clock is replayed
-    if (b <= 1) this.les = spreadOf(tau); else if (b === 2) this.les = Math.max(this.les, spreadOf(tau)); else this.les += (1 - this.les) * (1 - Math.exp(-dt * 3));
-    const spread = this.les;
+    if (b <= 1) this.les = spreadOf(tau); else if (b === 2) this.les = Math.max(this.les, spreadOf(this.tau.v)); else this.les += (1 - this.les) * (1 - Math.exp(-dt * 3));
+    const spread = this.ch.scrub==null?this.les:spreadOf(tau);
     HU.uIk.value = clamp((o - .3) / .7); HU.uIR.value = .6 * spread;
     this.clot.scale.copy(this.clotS).multiplyScalar(Math.max(.001, clamp(o * 3)));
     this.clotHalo.material.opacity = Math.sin(clamp(o * 2) * Math.PI) * .55;
     this.H.distMat.color.copy(this.corC).lerp(this.deadC, clamp(o * 1.5));
     this.H.flowD.value = 1 - clamp(o * 2);
     // chart: CK drawn while the clock runs on beat 2, LDH on beat 3; cursor = the clock
-    this.cC.reveal.set(b === 2 ? tau : b >= 3 ? 1 : 0);
-    this.cL.reveal.set(b === 3 ? tau : b >= 4 ? 1 : 0);
-    this.ch.curT.set(tau); this.ch.update();
+    this.cC.reveal.set(b === 2 ? this.tau.v : b >= 3 ? 1 : 0);
+    this.cL.reveal.set(b === 3 ? this.tau.v : b >= 4 ? 1 : 0);
+    this.ch.curT.set(this.tau.v); this.ch.update();
     // clock
     if (b >= 2) { this.arc.setAttribute('stroke-dashoffset', (this.CIRC * (1 - tau)).toFixed(1)); this.hand.setAttribute('transform', `rotate(${(tau * 720).toFixed(1)})`); }
     // tubes read the models at the clock time

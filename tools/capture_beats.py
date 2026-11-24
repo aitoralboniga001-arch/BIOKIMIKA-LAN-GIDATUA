@@ -23,7 +23,7 @@ def capture():
         page.on('console',lambda m: failures.append(m.text) if m.type in ('error','warning') else None)
         page.goto((deck/'index.html').as_uri(),wait_until='domcontentloaded')
         page.wait_for_selector('#loading.gone',state='attached',timeout=180000)
-        page.add_style_tag(content='*{transition-duration:0s!important;transition-delay:0s!important}#loading{display:none!important}')
+        page.add_style_tag(content='*{transition-duration:0s!important;transition-delay:0s!important}#loading,.time-hint{display:none!important}')
         page.keyboard.press('q')
         if page.evaluate('__pres.quality')!=1: page.keyboard.press('q')
         # Choose a representative instant for mechanisms whose end state conceals the action.

@@ -115,6 +115,8 @@ export default {
     // axis title sits above the plot so no trace can run through it
     const yl = el('text', { x: 0, y: -14, 'font-size': 22, 'font-weight': 600, fill: INK }, svg); yl.textContent = 'Jarduera plasmatikoa';
     const sc = el('text', { x: SW, y: -14, 'text-anchor': 'end', 'font-size': 22, fill: MUTE }, svg); sc.textContent = 'eskematikoa';
+    this.previous = el('path',{fill:'none',stroke:INK,'stroke-width':2.5,'stroke-dasharray':'6 5',opacity:.32},svg);
+    this.previousName = el('text',{x:SW-4,y:29,'text-anchor':'end','font-size':20,fill:MUTE},svg);
     this.area = el('path', { fill: alpha(PAL.amber, .12), stroke: 'none' }, svg);
     this.trace = el('path', { fill: 'none', stroke: PAL.amber, 'stroke-width': 3.5, 'stroke-linejoin': 'round', 'stroke-linecap': 'round' }, svg);
     this.tip = el('circle', { r: 7, fill: PAL.coral, stroke: PAPER, 'stroke-width': 2.5 }, svg);
@@ -179,8 +181,15 @@ export default {
   count(st) { let n = 0; for (const a of this.A) if (a.st === st) n++; return n; },
   release(a, delay = 0) { this.cell.group.localToWorld(this.tmp.copy(a.p)); if (a.st === 2) a.m.localToWorld(this.tmp.copy(a.home)); a.from.copy(this.tmp); a.st = 3; a.t = -delay * .42; }, // delay in seconds (path progress advances .42 / s)
   enter(b) { this.rig.arrive(V(-.2, .62, 14), V(-.2, .12, 0), 34); this.apply(b, true); },
-  beat(b, dir) { this.apply(b, false, dir); },
+  beat(b, dir) { if (dir !== 0 || b !== this.b) this.apply(b, false, dir); },
   apply(b, instant, dir = 0) {
+    const previousBeat=this.b;
+    const names=['','Iragazkortasuna','Nekrosia','Sintesia','Eliminazio motela'];
+    if(instant || b!==previousBeat){
+      const compare=!instant && b>=1 && b<=4 && previousBeat>=1 && previousBeat<=4 && this.hn>=3 && this.hn<NS;
+      this.previous.setAttribute('d',compare?this.trace.getAttribute('d'):'');
+      this.previousName.textContent=compare?'– – '+names[previousBeat]:'';
+    }
     const M = MODES[b], prev = this.mode; this.mode = M; this.b = b;
     const cx=b===1?-.65:b===4?.32:-.2, dist=b===2?15.1:b===1?13.15:14;
     this.rig.go(V(cx,.62,dist),V(cx,.12,0),2.15,34);
@@ -246,6 +255,7 @@ export default {
       else if (needM > 0) { a.st = 2; a.mit = true; a.m = this.cell.mitos[needM % this.cell.mitos.length]; a.home.set((R() - .5) * .5, (R() - .5) * .12, (R() - .5) * .12); a.s = 0; needM--; } }
   },
   drawStrip() {
+    if(this.hn===NS){this.previous.removeAttribute("d");this.previousName.textContent="";}
     if (!this.hn) { this.trace.setAttribute('d', ''); this.area.setAttribute('d', ''); this.tip.setAttribute('opacity', 0); return; }
     let d = '';
     for (let i = 0; i < this.hn; i++) d += (i ? 'L' : 'M') + (i / (NS - 1) * SW).toFixed(1) + ' ' + (SH - this.hist[i] * SH).toFixed(1);
