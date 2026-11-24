@@ -1,6 +1,8 @@
 import { THREE } from '../core.js';
 import { bodyGeo } from './s04_tissues_anatomy.js';
 import { fresnelMat } from '../lib3d.js';
+import { specimen } from './specimens.js';
+import { tissueSlab } from './s05_intensity.js';
 import { balanceModel } from '../sim.js';
 
 export function closingObjects(scene) {
@@ -21,23 +23,21 @@ export function closingObjects(scene) {
   );
   body.scale.setScalar(0.33);
   groups[0].add(body);
-  piece(groups[0], new THREE.SphereGeometry(0.09, 12, 8), '#b05842', -0.045, 0.22, 0.045).scale.set(
-    1.3,
-    0.7,
-    0.7,
-  );
-  for (const x of [-0.22, 0.22]) {
-    const slab = piece(groups[1], new THREE.BoxGeometry(0.38, 0.11, 0.44), '#c88f81', x, -0.07, 0);
-    slab.rotation.x = 0.4;
-    for (let i = 0; i < 4; i++)
-      piece(
-        groups[1],
-        new THREE.SphereGeometry(0.065, 8, 6),
-        x < 0 || i === 0 ? '#af5744' : '#dac2a5',
-        x + ((i % 2) - 0.5) * 0.14,
-        0.01,
-        ((i >> 1) - 0.5) * 0.15,
-      );
+  const liver = specimen('liver');
+  liver.scale.setScalar(.15);
+  liver.position.set(-.025,.22,.036);
+  groups[0].add(liver);
+
+  // Repeat the tissue comparison from the lesion scene, using its actual hexagonal cells.
+  for (const [x, damaged] of [[-.23, 30], [.23, 5]]) {
+    const tissue = tissueSlab();
+    const order = tissue.pos.map((p, i) => ({i, distance:p.lengthSq()}))
+      .sort((a, b) => a.distance - b.distance);
+    for (const {i} of order.slice(0, damaged)) tissue.aDmg[i] = 1;
+    tissue.mesh.position.x = x;
+    tissue.mesh.scale.setScalar(.11);
+    tissue.mesh.rotation.x = .73;
+    groups[1].add(tissue.mesh);
   }
   const clock = groups[2];
   piece(

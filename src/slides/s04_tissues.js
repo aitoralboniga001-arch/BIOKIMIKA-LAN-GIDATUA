@@ -3,7 +3,6 @@
 import { organMat } from '../optics.js';
 import { THREE, Tw, add, rng, clamp, Label } from '../core.js';
 import { makeScene, C, COL, COL3, halo, contactShadow, bloodTube, instancedBlobs, Pts } from '../lib3d.js';
-import { alpha } from '../theme.js';
 import { CamRig, V } from '../rig.js';
 import { bodyGeo, organs, vesselPaths, JUNCTION, EXIT } from './s04_tissues_anatomy.js';
 const _bf = new THREE.Vector3(); // scratch vector for the bridge focus
@@ -106,19 +105,18 @@ export default {
     // ---- text
     add(layer, `<div class="eyebrow"><b>2</b>Igoeraren jatorria</div>`);
     add(layer, `<div class="h1">Entzimen <em>ehun-espezifikotasuna</em></div>`);
-    this.chips = ENZ.map((e, i) => add(layer, `<div class="abs" style="left:96px;top:${262 + i * 74}px;font:600 29px/1 var(--sans);letter-spacing:-.01em;color:${e.c};opacity:.35;transition:opacity .5s, transform .5s cubic-bezier(.2,.8,.2,1);display:flex;align-items:center;gap:14px">
-      <span style="width:10px;height:10px;border-radius:50%;background:${e.c}"></span>${e.k}
-      <span class="ndots" style="display:flex;gap:5px;margin-left:6px;opacity:0;transition:opacity .6s .4s">${e.org.map(() => `<i style="width:9px;height:9px;border-radius:50%;border:2px solid ${e.c};opacity:.8"></i>`).join('')}</span></div>`));
-    // one reading column, no card: the enzyme's name, where it comes from, what it says in the clinic
-    this.cards = ENZ.map((e, i) => add(layer, `<div class="abs fx r" data-b="${i + 1}-${i + 1}" style="left:1260px;top:290px;width:570px">
-      <div style="width:48px;height:3px;border-radius:2px;background:${e.c};margin-bottom:18px"></div>
-      <div style="font:650 64px/1 var(--sans);letter-spacing:-.025em;color:${e.c}">${e.k}</div>${e.name ? `<div style="font:italic 400 28px/1.2 var(--serif);color:var(--mute);margin-top:8px">${e.name}</div>` : ''}
-      <div class="kicker" style="margin-top:34px">Jatorria</div><div style="font:400 30px/1.32 var(--serif);color:var(--ink);margin-top:8px">${e.src}</div>
-      <div class="kicker" style="margin-top:26px">Diagnostikoan</div><div style="font:400 25px/1.42 var(--sans);color:var(--ink2);margin-top:8px">${e.use}</div>
+    const index = add(layer, '<div class="atlas-index"></div>');
+    this.chips = ENZ.map(e => add(index, `<div class="atlas-row" style="--enzyme:${e.c}">
+      <span class="atlas-name">${e.k}</span>
+      <span class="atlas-sites">${e.org.map(() => '<i></i>').join('')}</span></div>`));
+    this.cards = ENZ.map((e, i) => add(layer, `<div class="abs fx r atlas-entry" data-b="${i + 1}-${i + 1}" style="--enzyme:${e.c}">
+      <h2 class="atlas-symbol">${e.k}</h2>${e.name ? `<div class="atlas-expanded">${e.name}</div>` : ''}
+      <dl><dt>Jatorria</dt><dd class="atlas-source">${e.src}</dd>
+      <dt>Diagnostikoan</dt><dd>${e.use}</dd></dl>
       ${e.k === 'CK' ? `<div style="margin-top:26px;padding-top:18px;border-top:1.5px solid var(--line);font:500 25px/1.3 var(--sans);color:var(--ink2)"><b style="color:var(--gold)">ALT</b> → ehun bat &nbsp;·&nbsp; <b style="color:var(--coral)">CK</b> → hiru jatorri posible</div>` : ''}</div>`));
-    add(layer, `<div class="note" data-b="2-6" style="left:96px;top:800px;width:470px;font-size:22px"><span style="font-style:normal">○</span> = jatorri posible bat</div>`);
+    add(layer, `<div class="note" data-b="1-6" style="left:96px;top:791px;width:410px;font-size:24px"><span style="font-style:normal">○</span> = jatorri posible bat</div>`);
     add(layer, `<div class="note" data-b="7" style="left:96px;top:790px;width:500px;font-size:23px">Jatorri bat baino gehiago? → <span style="color:var(--ink2)">beste analisiak eta datu klinikoak</span><br><span style="font-size:22px">Erreferentzia-balioetan: adina, egoera fisiologikoa, sintomak</span></div>`);
-    add(layer, `<div class="note" data-b="0-0" style="left:1250px;top:420px;width:560px;font-size:30px;line-height:1.4">Igoera bat ikustean:<br><span style="color:var(--ink);font-style:normal">nondik etor daiteke entzima?</span></div>`);
+    add(layer, `<div class="note" data-b="0-0" style="left:1260px;top:378px;width:530px;font-size:36px;line-height:1.28;padding-top:25px;border-top:2px solid var(--line)">Igoera bat ikustean:<br><span style="color:var(--ink);font-style:normal">nondik etor daiteke entzima?</span></div>`);
     this.labs = {};
     const anch = { liver: [-.27, .7, .05, 'l'], muscle: [-.2, -.36, .08, 'l'], heart: [.13, .96, .08, 'r'], brain: [.13, 1.68, .05, 'r'], bone: [-.2, -1.22, 0, 'l'], placenta: [.11, .3, .11, 'r'], rbc: [-.19, -1.0, .1, 'l'],
       bile: [-.13, .56, .12, 'l'], pancreas: [.23, .6, -.03, 'r'], saliva: [-.15, 1.48, .02, 'l'], lungs: [-.25, 1.05, -.03, 'l'], kidney: [.18, .44, -.1, 'r'] };
@@ -154,8 +152,10 @@ export default {
     if (e) this.labs.saliva.el.querySelector('.t').innerHTML = b - 1 === AMY ? 'Listu-guruinak<small>amilasa</small>' : 'Listu-guruinak';
     for (const k in this.labs) this.lead(this.labs[k], (LEAD[b] || {})[k]);
     for (const k in this.labs) this.labs[k].el.style.color = e ? (b - 1 === AMY && k === 'saliva' ? COL.amber : e.c) : '#5d7fae';
-    this.chips.forEach((c, i) => { c.style.opacity = i === b - 1 ? 1 : (b === 0 ? .8 : .42); c.style.transform = i === b - 1 ? 'translateX(12px)' : 'none';
-      c.querySelector('.ndots').style.opacity = i < b ? 1 : 0; });
+    this.chips.forEach((row, i) => {
+      row.classList.toggle('selected', i === b - 1);
+      row.classList.toggle('visited', i < b);
+    });
   },
   // pull a side label away from its anchor along a thin leader line (or put it back)
   lead(l, off) {

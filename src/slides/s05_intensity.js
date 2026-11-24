@@ -22,7 +22,7 @@ const SIDES = [
 const RING = [[0, 0]]; for (let j = 0; j < 6; j++) RING.push([Math.cos(j / 6 * 6.283 + .5) * .1, Math.sin(j / 6 * 6.283 + .5) * .1]);
 
 // light tissue: pale cytosol hex cells; a damaged cell shrinks, empties to grey and flashes once as it breaks
-function slab() {
+export function tissueSlab() {
   const geo = new THREE.CylinderGeometry(HR * .93, HR * .93, .22, 6); geo.rotateY(Math.PI / 6);
   const aDmg = new Float32Array(NCELL);
   geo.setAttribute('aDmg', new THREE.InstancedBufferAttribute(aDmg, 1));
@@ -63,7 +63,7 @@ export default {
     const m4 = new THREE.Matrix4();
     this.sc = SIDES.map(cfg => {
       const g = new THREE.Group(); g.position.set(cfg.x, -1.15, 0); g.rotation.x = .38; this.scene.add(g);
-      const s = slab(); g.add(s.mesh); g.updateMatrixWorld(true);
+      const s = tissueSlab(); g.add(s.mesh); g.updateMatrixWorld(true);
       const sh = contactShadow({ size: 1, opacity: .14 }); sh.scale.set(5.2, 3, 1); sh.position.set(cfg.x, -1.62, .3); this.scene.add(sh);
       // damaged cells: a patch around the centre (big patch on the left, a small one on the right)
       const order = s.pos.map((p, i) => [p.length() + R() * .18, i]).sort((a, b) => a[0] - b[0]).map(a => a[1]);
