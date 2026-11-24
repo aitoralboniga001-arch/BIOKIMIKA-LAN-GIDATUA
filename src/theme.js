@@ -10,7 +10,7 @@
 
 export const PAL = {
   bg0: '#E7EDF4', bg1: '#FBF9F5',                 // background edge / centre
-  ink: '#142033', ink2: '#3A465C', mute: '#6B7690',
+  ink: '#142033', ink2: '#3A465C', mute: '#5F6A82',
   amber: '#B8650A', red: '#D22F45', coral: '#E0503A', blue: '#1D6FD1', teal: '#0C9584', violet: '#6A4FD6',
   gold: '#856500', mint: '#1F9A63', orange: '#DB6E0B', lav: '#8462D9', pink: '#D23F78',
 };
@@ -24,6 +24,15 @@ export const COL3 = {
   cyto: '#F6B79A',     // cytosol tint
 };
 
+// per-chapter look (plan A §A3): background glow for the 3D backdrop, a text-safe accent (≥ 4.5:1 on paper) for the
+// chapter number, rules, the chapter bar and emphasis, and a softer tint for the bridges. Entity colours (CK coral,
+// LDH blue, ALT gold, amylase orange, lipase teal, M/B, H/M) never follow the chapter.
+//   0 Sarrera — warm lab morning, amber · 1 Jatorria/intentsitatea — tissue, terracotta · 2 Agerpena/iraupena — time, cool
+//   blue · 3 Isoentzimak — analytic violet · 4 Infartua/ondorioak — clinical crimson
+export const CHAPTER_LOOK = ['#fff1da','#fde9e1','#e6eefb','#ece8fb','#fbe5e7'];
+export const CHAPTER_ACCENT = ['#A65A08','#B9452C','#1D62C0','#5E45C8','#B0283F'];
+export const CHAPTER_TINT = ['#dfad53','#d48857','#7d9fd6','#8d86bd','#be7567'];
+
 export function alpha(hex, a) {
   const n = parseInt(hex.slice(1), 16);
   return `rgba(${n >> 16 & 255},${n >> 8 & 255},${n & 255},${a})`;
@@ -34,9 +43,9 @@ export const LINE = 'rgba(20,32,51,.12)';          // hairlines, card borders
 export const LINE2 = 'rgba(20,32,51,.28)';         // dashed guides, axes that must be visible
 export const AXIS = 'rgba(20,32,51,.62)';          // chart axes
 export const CARD_BG = 'rgba(255,255,255,.8)';
-export const CARD_SHADOW = '0 18px 50px rgba(30,45,80,.12)';
+export const CARD_SHADOW = '0 6px 16px rgba(30,45,80,.11)';
 export const PAPER = '#FFFFFF';                    // stroke around dots/markers so they pop off curves
-export const TEXT_HALO = '0 0 2px rgba(251,249,245,.95), 0 0 10px rgba(251,249,245,.9), 0 0 22px rgba(251,249,245,.7)';
+export const TEXT_HALO = '0 1px 1px rgba(251,249,245,.9)';
 export const SCRIM = (a = .78) => `radial-gradient(42% 50% at 50% 50%, rgba(251,249,245,${a}), rgba(251,249,245,0))`;
 
 // write PAL to CSS custom properties so CSS and JS can never drift apart

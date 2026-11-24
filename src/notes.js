@@ -20,8 +20,8 @@ export const NOTES = {
   ],
   marker: [
     'Entzima batek hainbat ehunetan jardun dezake. Horregatik, **entzima bat neurtzea abiapuntu erabilgarria da**, eta beste markatzaileek, laginaren uneak eta datu klinikoek osatzen dute interpretazioa. (Pantailan: entzimak substratua eraldatzen du — horixe da neurtzen den seinalea, jarduera U/L-tan — eta beste hiru datuekin batera interpretaziora doa.)',
-    '1. **Ehun-espezifikotasuna**: jarduera-aldaketa jatorri tisular jakin batekin lotzeko aukera. (Pantailan: kaltea gibelean → ALT eta LDH igotzen dira; bihotzean edo muskuluan → LDH bai, ALT ia ez. ALTk jatorria seinalatzen du; LDHk ez.)',
-    '2. **Sentikortasuna**: ehunaren egoeran gertatutako aldaketak odolean hautemateko gaitasuna. (Kalte txiki berberak: markatzaile sentikorra erreferentzia-mugaren gainetik igotzen da; ez-sentikorra zaratan galtzen da.)',
+    '1. **Ehun-espezifikotasuna**: jarduera-aldaketa jatorri tisular jakin batekin lotzeko aukera. (Pantailan: kaltea gibelean → ALT eta LDH igotzen dira; bihotzean edo muskuluan → LDH bai, ALT ia ez. ALT gibelean nagusitzen da; LDH ehun askotan dago.)',
+    '2. **Sentikortasuna**: ehunaren egoeran gertatutako aldaketak odolean hautemateko gaitasuna. (Kalte txiki berberak: markatzaile sentikorra erreferentzia-mugaren gainetik igotzen da; sentikortasun txikiagokoak ez du muga gainditzen.)',
     '3. **Errepikagarritasuna**: baldintza beretan egindako neurketek antzeko emaitzak eman behar dituzte. (Lagin bera behin eta berriz neurtuta: A metodoaren puntuak elkarrengandik hurbil; B metodoarenak sakabanatuta.)',
     '4. **Zehaztasun analitikoa**: saiakuntzak jarduera katalitikoa fidagarritasunez neurtu behar du. (Bi metodoek antzeko emaitzak errepikatzen dituzte, baina bakarra dago egiazko balioaren inguruan: **errepikagarria izatea ez da zehatza izatea**.)',
     'Ez nahastu: **substratuarekiko espezifikotasuna** = zer molekulari eragiten dion; **ehun-espezifikotasuna** = zein ehunetan dagoen eta zenbateraino nagusitzen den. (Ezkerrean: substratu egokia gune aktiboan sartzen da eta eraldatzen da; beste molekula batek talka egin eta errebotatzen du — giltza eta sarraila. Eskuinean: ALT gibelean nagusitzen da; giltzurrunean gutxiago, eta bihotzean eta muskuluan are gutxiago — eskematikoa.)',
@@ -44,7 +44,7 @@ export const NOTES = {
   ],
   kinetics: [
     'Odoleko emaitza **lagina hartu den uneko neurketa** da: argazki bat (puntu bakarra, kurbarik gabe). Agerpen-zinetikak azaltzen du jarduera nola aldatzen den lesioa hasi zenetik (2. irudia).',
-    'Jarduera = **ehunetik iristen dena − zirkulaziotik kentzen dena** (goiko barrak; ehunean kaltea zabaltzen doa eta entzimak hodira doaz; hoditik ateratzen direnak kentze-eremuan degradatu eta desagertzen dira). **1. Igoera**: iristea kentzea baino handiagoa da, eta jarduera handitzen da (hodia betetzen doa; erlojuak lesiotik igarotako denbora erakusten du, eskematikoa).',
+    'Jardueraren aldaketa = **ehunetik iristen dena − zirkulaziotik kentzen dena** (goiko barrak; ehunean kaltea zabaltzen doa eta entzimak hodira doaz; hoditik ateratzen direnak kentze-eremuan degradatu eta desagertzen dira). **1. Igoera**: iristea kentzea baino handiagoa da, eta jarduera handitzen da (hodia betetzen doa; erlojuak lesiotik igarotako denbora erakusten du, eskematikoa).',
     '**2. Gailurra**: iristea eta kentzea berdintzen direnean (bi barrak berdin), jarduera neurtuak baliorik handiena hartzen du.',
     '**3. Jaitsiera**: entzima gutxiago iristen da eta kentzea nagusitzen da. Faseen iraupena entzimaren, askapenaren eta lesioaren araberakoa da.',
     'Lagina **goizegi** hartuta (zelula batzuk kaltetuta daude jada, baina entzima gutxi iritsi da odolera), jarduera oraindik erreferentzia-tartean egon daiteke (nahiz eta igotzen ari den: iristea > kentzea).',
@@ -92,3 +92,8 @@ export const NOTES = {
   ],
   refs: ['Bibliografia (galderetan erakusteko).'],
 };
+
+// Who presents each chapter (index = chapter: 0 Sarrera eta neurketa … 4 Infartua eta ondorioak). The group fills these
+// in; while a name is empty the presenter view simply shows no speaker. The cover counts as chapter 0.
+// Group: Eneritz Baranda, Urtzi Castillo, Ane Hormaetxe, Nora Navascues, Aitor Alboniga.
+export const SPEAKERS = ['', '', '', '', ''];

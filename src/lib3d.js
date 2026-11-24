@@ -1,5 +1,6 @@
 // Reusable 3D building blocks: backgrounds, particles, protein blobs, glass, cells, tubes, red cells.
-import { THREE, U, envTex, rng, clock } from './core.js';
+import { THREE, U, envTex, rng, clock, quality } from './core.js';
+import { glassMat, liquidMat } from './optics.js';
 import { PAL, COL3 } from './theme.js';
 
 export const C = (hex) => new THREE.Color(hex);
@@ -21,14 +22,26 @@ export function makeScene({ fov = 35, top = PAL.bg1, bottom = PAL.bg0, glow = '#
   const scene = new THREE.Scene();
   scene.environment = envTex; scene.environmentIntensity = envIntensity;
   const camera = new THREE.PerspectiveCamera(fov, 16 / 9, 0.05, 400);
-  scene.add(bgQuad(top, bottom, glow, gx, gy));
+  const backdrop=bgQuad(top,bottom,glow,gx,gy); scene.add(backdrop);
   // daylight: bright sky / warm bounce, a warm key and a soft cool rim
   const hemi = new THREE.HemisphereLight(0xffffff, 0xcdb89f, .72); scene.add(hemi);
   const key = new THREE.DirectionalLight(0xfff4e6, 2.1); key.position.set(4, 6, 7); scene.add(key);
   const rim = new THREE.DirectionalLight(0xcfe0ff, .75); rim.position.set(-6, 2, -5); scene.add(rim);
   let dustObj = null;
   if (dust) { dustObj = bokeh(dust, dustSpread); scene.add(dustObj.mesh); }
-  return { scene, camera, key, rim, hemi, dust: dustObj };
+  if(dustObj) {
+    const foreground=Array.from({length:3},(_,i)=>{
+      const sprite=halo(['#a1b1ce','#d7b697','#a1bfbf'][i],.74,.09);
+      scene.add(sprite); return sprite;
+    });
+    const updateDust=dustObj.update;
+    dustObj.update=t=>{
+      updateDust(t);
+      foreground.forEach((s,i)=>{s.visible=!!quality.level;
+        if(s.visible) s.position.set((i===1?1:-1)*(4.3+i*.32)+camera.position.x*.25+Math.sin(t*.17+i)*.08,(i-1)*1.8+camera.position.y*.25,1.1+i*.2);});
+    };
+  }
+  return { scene, camera, key, rim, hemi, backdrop, dust: dustObj };
 }
 
 export function bgQuad(top = PAL.bg1, bottom = PAL.bg0, glow = '#FFF9F0', gx = .5, gy = .5) {
@@ -43,8 +56,6 @@ export function bgQuad(top = PAL.bg1, bottom = PAL.bg0, glow = '#FFF9F0', gx = .
         vec3 col = mix(c0, c1, smoothstep(.05, .95, length(q)));
         col = mix(col, c1, smoothstep(.55, 0., vUv.y) * .25);
         vec2 d = (vUv - gp) * vec2(1.78, 1.); col = mix(col, cg, exp(-dot(d, d) * 3.) * .6);
-        float v = length((vUv - .5) * vec2(1.3, 1.)); col *= 1. - smoothstep(.55, 1.1, v) * .05;
-        col += (h(vUv * 1000. + fract(uT)) - .5) * .004;
         gl_FragColor = vec4(min(col, vec3(.985)), 1.); }`,
     depthTest: false, depthWrite: false,
   });
@@ -317,8 +328,7 @@ export function bloodTube({ r = .5, h = 3.4, red = .38, cap = '#B98A2E', label =
   for (let i = 0; i <= 10; i++) { const a = -Math.PI / 2 + i / 10 * Math.PI / 2; prof.push(new THREE.Vector2(Math.cos(a) * r, Math.sin(a) * r + r)); }
   prof.push(new THREE.Vector2(r, h));
   const glassGeo = new THREE.LatheGeometry(prof, 64);
-  g.add(new THREE.Mesh(glassGeo, fresnelMat({ color: COL3.glass, power: 2.4, intensity: .7, base: .03 })));
-  const back = new THREE.Mesh(glassGeo, fresnelMat({ color: '#8fa6c4', power: 3, intensity: .3, base: .0, side: THREE.BackSide })); g.add(back);
+  g.add(new THREE.Mesh(glassGeo,glassMat(COL3.glass)));
   // contents
   const ri = r * .9, yRed = h * red, yTop = h * .8;
   const redProf = []; for (let i = 0; i <= 10; i++) { const a = -Math.PI / 2 + i / 10 * Math.PI / 2; redProf.push(new THREE.Vector2(Math.cos(a) * ri + .001, Math.sin(a) * ri + r)); }
@@ -328,7 +338,7 @@ export function bloodTube({ r = .5, h = 3.4, red = .38, cap = '#B98A2E', label =
   const buffy = new THREE.Mesh(new THREE.CylinderGeometry(ri, ri, .05, 48), new THREE.MeshStandardMaterial({ color: '#e9e2d4', roughness: .85, envMapIntensity: .6 }));
   buffy.position.y = yRed + .025; g.add(buffy);
   const plasmaGeo = new THREE.CylinderGeometry(ri, ri, yTop - yRed - .05, 48, 1, true);
-  const plasmaMat = fresnelMat({ color: COL3.plasma, power: 1.6, intensity: .42, base: .2 });
+  const plasmaMat = liquidMat(COL3.plasma);
   const plasma = new THREE.Mesh(plasmaGeo, plasmaMat); plasma.position.y = (yTop + yRed + .05) / 2; g.add(plasma);
   const surf = new THREE.Mesh(new THREE.CircleGeometry(ri, 48), new THREE.MeshBasicMaterial({ color: C(COL3.plasma), transparent: true, opacity: .35, depthWrite: false }));
   surf.rotation.x = -Math.PI / 2; surf.position.y = yTop; g.add(surf);
@@ -338,7 +348,7 @@ export function bloodTube({ r = .5, h = 3.4, red = .38, cap = '#B98A2E', label =
   const c1 = new THREE.Mesh(new THREE.CylinderGeometry(r * 1.18, r * 1.18, .62, 48), capMat); c1.position.y = .26; capG.add(c1);
   for (let i = 0; i < 4; i++) { const ring = new THREE.Mesh(new THREE.TorusGeometry(r * 1.19, .018, 8, 64), capMat); ring.rotation.x = Math.PI / 2; ring.position.y = .02 + i * .15; capG.add(ring); }
   const c2 = new THREE.Mesh(new THREE.CylinderGeometry(r * .95, r * 1.1, .14, 48), capMat); c2.position.y = .62; capG.add(c2);
-  g.add(capG);
+  c1.castShadow=true; redMesh.castShadow=true; g.add(capG);
   if (label) {
     const cv = document.createElement('canvas'); cv.width = 512; cv.height = 256; const x = cv.getContext('2d');
     x.fillStyle = '#f4efe6'; x.fillRect(0, 0, 512, 256);
@@ -361,13 +371,13 @@ export function bloodTube({ r = .5, h = 3.4, red = .38, cap = '#B98A2E', label =
 }
 
 // ---------------------------------------------------------------- red blood cell (biconcave disc)
-export function rbcGeo(r = .5) {
+export function rbcGeo(r = .5, N = 28, segments = 40) {
   const pts = [];
-  const N = 28, prof = x => .5 * Math.sqrt(Math.max(0, 1 - x * x)) * (.207 + 2.003 * x * x - 1.123 * x ** 4);
+  const prof = x => .5 * Math.sqrt(Math.max(0, 1 - x * x)) * (.207 + 2.003 * x * x - 1.123 * x ** 4);
   const xs = i => Math.sin(i / N * Math.PI / 2); // denser samples near the rim
   for (let i = 0; i <= N; i++) { const x = xs(i); pts.push(new THREE.Vector2(x * r + .0001, -(prof(x) * 1.4 + .02) * r)); }
   for (let i = N; i >= 0; i--) { const x = xs(i); pts.push(new THREE.Vector2(x * r + .0001, (prof(x) * 1.4 + .02) * r)); }
-  const g = new THREE.LatheGeometry(pts, 40);
+  const g = new THREE.LatheGeometry(pts, segments);
   g.computeVertexNormals(); return g;
 }
 export function rbcMat() { return new THREE.MeshPhysicalMaterial({ color: C('#c8243c'), roughness: .4, clearcoat: .6, sheen: .7, sheenColor: C('#ff8090'), emissive: C('#3a0610'), emissiveIntensity: .12, envMapIntensity: .7 }); }
@@ -468,8 +478,7 @@ export function glassCylinder({ r = 1, h = 2, color = COL3.glass, bottom = true 
   const g = new THREE.Group();
   const side = new THREE.CylinderGeometry(r, r, h, 64, 1, true);
   const ec = glassEdge(color);
-  g.add(new THREE.Mesh(side, fresnelMat({ color: ec, power: 2.4, intensity: .75, base: .035 })));
-  g.add(new THREE.Mesh(side, fresnelMat({ color: ec, power: 3, intensity: .3, base: 0, side: THREE.BackSide })));
+  g.add(new THREE.Mesh(side,glassMat(ec)));
   const rimG = new THREE.TorusGeometry(r, .02, 8, 64); const rimM = new THREE.MeshBasicMaterial({ color: ec, transparent: true, opacity: .55 });
   const top = new THREE.Mesh(rimG, rimM); top.rotation.x = Math.PI / 2; top.position.y = h / 2; g.add(top);
   if (bottom) { const b = new THREE.Mesh(rimG, rimM); b.rotation.x = Math.PI / 2; b.position.y = -h / 2; g.add(b);

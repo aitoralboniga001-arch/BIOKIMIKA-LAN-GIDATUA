@@ -1,22 +1,23 @@
 // 12 · Closing: the four questions answered around the sample we started with; thanks.
-// beat 0: the tube in the centre, a tidy ring of enzymes orbiting it, each question card tied to the sample by a drawn leader line
-// beat 1: the tube sinks away and the ring opens into a wide, slow orbit that frames "Eskerrik asko" (a calm final picture)
-import { THREE, Tw, add, ease, rng, clamp, screenOf } from '../core.js';
-import { makeScene, bloodTube, instancedBlobs, C, COL, COL3, halo, contactShadow } from '../lib3d.js';
+// Four miniature teaching objects stay with the sample, then orbit the final question.
+import { THREE, Tw, add, ease, clamp, screenOf } from '../core.js';
+import { makeScene, bloodTube, COL, halo, contactShadow } from '../lib3d.js';
 import { TEXT_HALO, alpha } from '../theme.js';
 import { CamRig, V } from '../rig.js';
+import { closingObjects } from './closing_objects.js';
+import { makeTrace } from './s00_trace.js';
 import { icon } from '../icons.js';
 import { el } from '../chart.js';
+const _bf = new THREE.Vector3(); // scratch vector for the bridge focus
 
 const TUBE_Y = -2.08, TUBE_S = 1.05; // cap top kept clear of the title descenders
-// orbit shapes: centre y, radii (x, z), tilt about x (front of the ring lower than the back)
-const RING0 = { y: 1.02, rx: 1.65, rz: 1.3, tilt: .34 };
-const RING1 = { y: .52, rx: 5.0, rz: 2.9, tilt: .55 };
 // leader-line anchors on the tube (tube-local units, not rotating with the sway): plasma above, the label below
 const ANCH = [[-.42, 2.45], [.42, 2.1], [-.48, 1.25], [.48, 1.0]];
 
 export default {
   id: 'end', chapter: 4, beats: 2, title: 'Ondorioak', bloom: .55,
+  bridgeIn: { focus() { const p = this.tb.plasma; return this.tb.group.localToWorld(_bf.set(0, (p.y0 + p.y1) / 2, 0)); } },
+  bridge: { mode: 'flow', dir: [0, -1], speed: 1.15 },
   build(layer) {
     const S = makeScene({ glow: '#FFF6E8', gx: .5, gy: .52, dust: 120 }); this.S = S; this.scene = S.scene; this.camera = S.camera;
     this.rig = new CamRig(this.camera, V(0, .4, 11), V(0, .1, 0), { fov: 34, drift: .05 });
@@ -24,23 +25,10 @@ export default {
     const shadow = contactShadow({ size: 1.9, opacity: .2 }); shadow.position.y = -.04; tb.group.add(shadow);
     this.back = halo('#f3c98a', 6, .1); this.back.position.set(0, .3, -1.2); this.scene.add(this.back);
 
-    // the ring: enzymes evenly spaced, coloured as a continuous gradient through the four question colours (one designed object, not confetti)
-    const n = 64; this.n = n; this.orb = instancedBlobs(n, { r: .075, glow: .18, seed: 14 }); this.scene.add(this.orb);
-    const stops = [COL3.coral, COL3.amber, COL3.mint, COL3.blue].map(C);
-    const R = rng(66), tmp = new THREE.Color(); this.O = [];
-    for (let i = 0; i < n; i++) {
-      const u = i / n, f = u * stops.length, k = Math.floor(f);
-      tmp.copy(stops[k % stops.length]).lerp(stops[(k + 1) % stops.length], f - k); this.orb.setColorAt(i, tmp);
-      const ax = V(R() - .5, R() - .5, R() - .5).normalize();
-      this.O.push({ a: u * Math.PI * 2 + (R() - .5) * .04, s: .8 + R() * .4, ph: R() * 6.28, ax, sp: .3 + R() * .5, lag: R() * .25 + u * .15 });
-    }
-    this.orb.instanceColor.needsUpdate = true;
-    // a hairline guide along the orbit (unit circle, transformed like the ring)
-    const pts = []; for (let i = 0; i <= 160; i++) { const a = i / 160 * Math.PI * 2; pts.push(V(Math.cos(a), 0, Math.sin(a))); }
-    this.guideMat = new THREE.LineBasicMaterial({ color: C(COL.amber), transparent: true, opacity: 0, depthWrite: false });
-    this.guide = new THREE.Line(new THREE.BufferGeometry().setFromPoints(pts), this.guideMat); this.scene.add(this.guide);
-    this.out = new Tw(0); this.lead = new Tw(0);
-    this.m4 = new THREE.Matrix4(); this.q = new THREE.Quaternion(); this.sv = V(1, 1, 1); this.p = V(0, 0, 0); this.wv = V(0, 0, 0);
+    this.objects=closingObjects(this.scene);
+    this.trace=makeTrace(layer); this.trace.el.dataset.b='1'; this.trace.el.classList.add('fx','fade');
+    this.trace.el.querySelector('.cv-read').style.display='none';
+    this.out=new Tw(0); this.lead=new Tw(0); this.wv=V(0,0,0); this.age=0; this.phase=0; this.traceTick=0;
 
     add(layer, `<div class="eyebrow" data-b="-0"><b>5</b>Ondorioak</div>`);
     add(layer, `<div class="h1" data-b="-0" style="left:0;right:0;text-align:center;max-width:none;top:96px">Entzima bat neurtzea = <em>abiapuntu</em> erabilgarria</div>`);
@@ -54,7 +42,7 @@ export default {
     this.leads = [];
     Q.forEach(([ic, q, a, c, x, y], i) => {
       const card = add(layer, `<div class="card fx pop d${i + 1}" data-b="-0" style="left:${x}px;top:${y}px;width:534px;display:flex;gap:22px;align-items:center;padding:24px 28px">
-        ${icon(ic, 76, c)}<div><h4 style="color:${c};font-size:32px;margin-bottom:6px">${q}</h4><p style="font-size:23px">${a}</p></div></div>`);
+        ${icon(ic, 64, c)}<div><h4 style="color:${c};font:400 38px/1.05 var(--serif);letter-spacing:-.01em;margin:0 0 6px">${q}</h4><p style="font-size:23px;line-height:1.35">${a}</p></div></div>`);
       // leader: from the card's inner edge to the tube; it grows out of the card after the card has popped (this.lead)
       const g = el('g', { 'data-b': '-0', class: 'fx fade' }, svg);
       const path = el('path', { fill: 'none', stroke: c, 'stroke-width': 2.2, 'stroke-linecap': 'round', opacity: .75 }, g);
@@ -64,13 +52,15 @@ export default {
       this.leads.push({ card, path, dot, ring, tail, left: x < 900, x, y, a: V(ANCH[i][0], ANCH[i][1], .3), sy: 0, key: '' });
     });
     add(layer, `<div class="key c" data-b="-0" style="bottom:110px;font-size:32px;color:var(--ink2)">Jatorria · magnitudea · denbora · testuingurua → <em>interpretazioa</em></div>`);
-    add(layer, `<div class="abs fx pop d2" data-b="1" style="left:0;right:0;top:330px;text-align:center">
-      <div style="font:400 140px/1 var(--serif);letter-spacing:-2px;text-shadow:${TEXT_HALO}">Eskerrik <em style="color:var(--amber)">asko</em></div>
-      <div style="font:400 44px/1 var(--serif);color:var(--ink2);margin-top:40px;font-style:italic;text-shadow:${TEXT_HALO}">Galderarik?</div>
-      <div style="font:500 23px/1.6 var(--sans);color:var(--mute);margin-top:70px;text-shadow:${TEXT_HALO}">Eneritz Baranda · Urtzi Castillo · Ane Hormaetxe · Nora Navascues · Aitor Alboniga</div></div>`);
+    // the farewell mirrors the cover: amber-rule eyebrow, a masked serif title, a short rule and the names
+    add(layer, `<div class="abs fx d1" data-b="1" style="left:0;right:0;top:300px;display:flex;justify-content:center;align-items:center;gap:18px;font:600 22px/1 var(--sans);letter-spacing:.24em;text-transform:uppercase;color:var(--mute);text-shadow:${TEXT_HALO}"><i style="display:block;width:46px;height:2px;background:var(--amber)"></i>Oinarrizko Biokimika <b style="color:var(--amber);font-weight:600">/</b> B.1 atala<i style="display:block;width:46px;height:2px;background:var(--amber)"></i></div>`);
+    add(layer, `<div class="abs fx d2" data-b="1" data-reveal="lines" style="left:0;right:0;top:352px;text-align:center;font:400 140px/1.04 var(--serif);letter-spacing:-2px;color:var(--ink);text-shadow:${TEXT_HALO}">Eskerrik <em style="color:var(--amber);letter-spacing:-1px">asko</em></div>`);
+    add(layer, `<div class="abs fx d4" data-b="1" style="left:0;right:0;top:540px;text-align:center;font:italic 400 46px/1 var(--serif);color:var(--ink2);text-shadow:${TEXT_HALO}">Galderarik?</div>`);
+    add(layer, `<div class="abs fx d5" data-b="1" style="left:924px;top:632px;width:72px;height:1.5px;background:rgba(20,32,51,.22)"></div>`);
+    add(layer, `<div class="abs fx d6" data-b="1" style="left:0;right:0;top:662px;text-align:center;font:500 24px/1.55 var(--sans);color:var(--ink2);letter-spacing:.2px;text-shadow:${TEXT_HALO}">Eneritz Baranda<span style="color:var(--amber);margin:0 10px">·</span>Urtzi Castillo<span style="color:var(--amber);margin:0 10px">·</span>Ane Hormaetxe<span style="color:var(--amber);margin:0 10px">·</span>Nora Navascues<span style="color:var(--amber);margin:0 10px">·</span>Aitor Alboniga</div>`);
   },
-  enter(b) { this.rig.arrive(V(0, .4, 11), V(0, .1, 0), 34); this.out.set(b); this.lead.set(0); if (!b) this.lead.to(1, 1.6, ease.io, .7); },
-  beat(b) { this.out.to(b, 2.6, ease.io); this.lead.to(b ? 0 : 1, b ? .6 : 1.4, ease.io); },
+  enter(b) { this.age=0; this.phase=0; this.rig.arrive(V(0, .4, 11), V(0, .1, 0), 34); this.out.set(b); this.lead.set(0); if (!b) this.lead.to(1, 1.6, ease.io, .7); },
+  beat(b) { this.rig.go(V(0,b?.8:.4,b?12.2:11),V(0,.1,0),2.4,34); this.out.to(b, 2.6, ease.io); this.lead.to(b ? 0 : 1, b ? .6 : 1.4, ease.io); },
   update(dt, t) {
     this.rig.update(t); this.S.dust.update(t);
     const o = this.out.v, tg = this.tb.group;
@@ -79,25 +69,15 @@ export default {
     tg.position.y = TUBE_Y - ease.in(o) * 6.5;
     this.back.position.y = .3 + o * .25; this.back.scale.setScalar(6 + o * 5); this.back.material.opacity = .1 + o * .05;
 
-    // ring shape per enzyme: a staggered blend from the small orbit to the wide one, so the ring "unfurls" around the text
-    const rot = t * .09;
-    for (let i = 0; i < this.n; i++) {
-      const E = this.O[i];
-      const k = ease.io(clamp((o * 1.35 - E.lag) / .85));
-      const ry = RING0.y + (RING1.y - RING0.y) * k, rx = RING0.rx + (RING1.rx - RING0.rx) * k, rz = RING0.rz + (RING1.rz - RING0.rz) * k, tl = RING0.tilt + (RING1.tilt - RING0.tilt) * k;
-      const a = E.a + rot * (1 - .45 * k) + Math.sin(k * Math.PI) * .6;
-      const lx = Math.cos(a) * rx, lz = Math.sin(a) * rz, bob = Math.sin(t * .8 + E.ph) * .05 * (1 + k);
-      this.p.set(lx, ry + bob - lz * Math.sin(tl), lz * Math.cos(tl));
-      this.q.setFromAxisAngle(E.ax, t * E.sp + E.ph); this.sv.setScalar(E.s * (.68 + .82 * k));
-      this.m4.compose(this.p, this.q, this.sv); this.orb.setMatrixAt(i, this.m4);
-    }
-    this.orb.instanceMatrix.needsUpdate = true;
-    // guide follows the global (unstaggered) ring shape; it fades out while the ring is unfurling
-    const kg = ease.io(o), G = this.guide;
-    G.position.y = RING0.y + (RING1.y - RING0.y) * kg; G.rotation.x = RING0.tilt + (RING1.tilt - RING0.tilt) * kg;
-    G.scale.set(RING0.rx + (RING1.rx - RING0.rx) * kg, 1, RING0.rz + (RING1.rz - RING0.rz) * kg);
-    this.guideMat.opacity = .22 * Math.abs(o * 2 - 1) ** 2;
-
+    this.age+=dt; this.phase+=dt*.075*o;
+    this.objects.forEach((object,i)=>{
+      const angle=this.phase+[2.48,.66,3.8,5.62][i];
+      const x=i%2?1.30:-1.30, y=i<2?.91:-.9;
+      object.position.set(x*(1-o)+5.25*Math.cos(angle)*o,y*(1-o)+2.7*Math.sin(angle)*o,.18+o*Math.sin(angle)*.4);
+      object.rotation.y=.15*Math.sin(t*.45+i);
+      object.scale.setScalar(ease.spring(clamp((this.age-i*.22)/.9))*(1.22+o*.45));
+    });
+    if(o>.01){this.traceTick-=dt;if(this.traceTick<=0){this.trace.pulse();this.traceTick=1.26;}this.trace.update(dt,t);}
     // leader lines: card inner edge -> tube anchor (re-projected each frame so they stay glued to the tube)
     const L = this.lead.v;
     for (const ld of this.leads) {

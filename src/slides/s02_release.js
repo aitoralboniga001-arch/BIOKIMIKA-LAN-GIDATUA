@@ -2,6 +2,8 @@
 // Every enzyme is an agent: the cell releases them at a rate, and enzymes are removed from the plasma at a rate
 // k × (amount in plasma) (first-order elimination; which enzyme leaves is random, the flux itself is not noisy). The panel on the right reads the same agents: measured inflow,
 // outflow = k × amount, and a strip chart of the plasma level, so each mechanism visibly moves the steady state.
+import { liquidMat, organMat } from '../optics.js';
+import { specimen } from './specimens.js';
 import { THREE, Tw, add, ease, rng, Label, clamp, damp, clock } from '../core.js';
 import { makeScene, instancedBlobs, glassCylinder, fresnelMat, membraneGeo, Pts, C, COL, COL3, halo } from '../lib3d.js';
 import { PAL, INK, INK2, MUTE, LINE2, PAPER, alpha } from '../theme.js';
@@ -9,6 +11,7 @@ import { el } from '../chart.js';
 import { makeCell } from '../cell.js';
 import { CamRig, V } from '../rig.js';
 import { icon } from '../icons.js';
+const _bf = new THREE.Vector3(); // scratch vector for the bridge focus
 
 // per beat: release rate (enzymes/s), elimination constant (1/s), pores, shatter, synthesis
 const MODES = [
@@ -23,12 +26,14 @@ const MAX = 300, CELLN = 56, MITON = 22, BASAL = 14;
 const POOL = { x: 1.15, y: -.35, r: .95, y0: -1.45, y1: .75 };
 const FULL = 100;                    // enzymes in plasma that fill the meter (headroom above the necrosis peak)
 const REF = BASAL * 1.35 / FULL;     // top of the reference band (fraction of the meter)
-const SW = 400, SH = 380, NS = 160, DTS = .25; // strip chart: size, samples, seconds per sample (40 s window)
+const SW = 400, SH = 260, NS = 160, DTS = .25; // strip chart: size, samples, seconds per sample (40 s window)
 const FMAX = 9;                      // flux that fills a bar (enzymes / s)
 const TRICKLE = 4;                   // enzymes in transit at the basal rate (1.5 / s × ~2.4 s path)
 
 export default {
   id: 'release', chapter: 1, beats: 6, title: 'Zergatik igotzen da jarduera plasmatikoa?', bloom: .7,
+  bridgeIn: { focus() { return this.cell.group.getWorldPosition(_bf); } },             // ... which becomes the releasing cell
+  bridge: { mode: 'flow', dir: [1, -.3] },
   build(layer) {
     const S = makeScene({ gx: .45, gy: .5 }); this.S = S; this.scene = S.scene; this.camera = S.camera;
     this.rig = new CamRig(this.camera, V(-.2, .62, 14), V(-.2, .12, 0), { fov: 34, drift: .04 });
@@ -37,13 +42,17 @@ export default {
     const pool = new THREE.Group(); pool.position.set(POOL.x, POOL.y, 0); this.scene.add(pool); this.pool = pool;
     const H = POOL.y1 - POOL.y0 + .55;
     const glass = glassCylinder({ r: POOL.r + .08, h: H }); glass.position.y = (POOL.y0 + POOL.y1 + .55) / 2 - .02; pool.add(glass);
-    this.liquid = new THREE.Mesh(new THREE.CylinderGeometry(POOL.r + .04, POOL.r + .04, POOL.y1 - POOL.y0 + .1, 64, 1, true), fresnelMat({ color: COL3.plasma, power: 1.4, intensity: .34, base: .09 }));
+    this.liquid = new THREE.Mesh(new THREE.CylinderGeometry(POOL.r + .04, POOL.r + .04, POOL.y1 - POOL.y0 + .1, 64, 1, true), liquidMat(COL3.plasma));
     this.liquid.position.y = (POOL.y0 + POOL.y1) / 2; pool.add(this.liquid);
     const surf = new THREE.Mesh(new THREE.CircleGeometry(POOL.r + .04, 64), new THREE.MeshBasicMaterial({ color: C(COL3.plasma), transparent: true, opacity: .2, depthWrite: false }));
     surf.rotation.x = -Math.PI / 2; surf.position.y = POOL.y1 + .05; pool.add(surf); this.surf = surf;
     // a slow circulating current of faint straw-coloured specks, so the pool reads as flowing blood plasma
     this.flow = new Pts(56); pool.add(this.flow.mesh); this.flowS = []; this.cFlow = C(COL3.plasma).lerp(C(COL3.amber), .35);
     { const Rf = rng(77); for (let i = 0; i < 56; i++) this.flowS.push({ a: Rf() * 6.28, r: .2 + Rf() * (POOL.r - .3), y: POOL.y0 + .15 + Rf() * (POOL.y1 - POOL.y0 - .3), ph: Rf() * 6.28, s: .05 + Rf() * .05 }); }
+    const uptake = new THREE.Group(); uptake.position.set(0,POOL.y0-1.2,0); pool.add(uptake);
+    const surface=organMat({color:'#a9797c',roughness:.57});
+    for(let i=0;i<3;i++){const lobe=new THREE.Mesh(new THREE.SphereGeometry(.28,20,14),surface);
+      lobe.scale.set(1.12,.8,.69);lobe.position.set((i-1)*.26,Math.cos(i)*.05,-.12); uptake.add(lobe);}
     // drain
     this.drainR = new Tw(1);
     const pipeMat = new THREE.MeshPhysicalMaterial({ color: C(COL3.blue), roughness: .3, transparent: true, opacity: .35, clearcoat: 1, depthWrite: false });
@@ -83,13 +92,14 @@ export default {
     // balance panel: flux bars, verdict, strip chart + meter on the same vertical scale
     this.panel = add(layer, `<div class="abs" style="left:1330px;top:222px;width:540px;transition:opacity .6s">
       <div style="display:grid;grid-template-columns:180px 330px;row-gap:12px;align-items:center;font:600 24px/1 var(--sans)">
-        <span style="color:var(--coral)">Iristea</span><div style="height:20px;border-radius:10px;background:${alpha(PAL.coral, .1)}"><div class="b-in" style="height:100%;width:0;border-radius:10px;background:${PAL.coral}"></div></div>
-        <span style="color:var(--blue)">Desagertzea</span><div style="height:20px;border-radius:10px;background:${alpha(PAL.blue, .1)}"><div class="b-out" style="height:100%;width:0;border-radius:10px;background:${PAL.blue}"></div></div>
+        <span style="color:var(--coral)">Iristea</span><div style="height:10px;border-radius:5px;background:${alpha(PAL.coral, .1)}"><div class="b-in" style="height:100%;width:0;border-radius:5px;background:${PAL.coral}"></div></div>
+        <span style="color:var(--blue)">Desagertzea</span><div style="height:10px;border-radius:5px;background:${alpha(PAL.blue, .1)}"><div class="b-out" style="height:100%;width:0;border-radius:5px;background:${PAL.blue}"></div></div>
       </div>
       <div class="b-verdict" style="margin-top:14px;font:500 24px/1.2 var(--sans);color:var(--ink2);text-shadow:var(--halo)">&nbsp;</div>
-      <div style="margin-top:4px;font:italic 400 21px/1.2 var(--serif);color:var(--mute)">desagertzea ∝ plasman dagoen kantitatea</div></div>`);
+      <div style="margin-top:6px;font:italic 400 22px/1.2 var(--serif);color:var(--mute)">desagertzea ∝ plasman dagoen kantitatea</div></div>`);
     this.bIn = this.panel.querySelector('.b-in'); this.bOut = this.panel.querySelector('.b-out'); this.bVerdict = this.panel.querySelector('.b-verdict');
-    const top = 430;
+    for(const bar of [this.bIn,this.bOut]){bar.style.width='100%';bar.style.transformOrigin='0 50%';}
+    const top = 410;
     this.meter = add(layer, `<div class="meter" style="left:1790px;top:${top}px;height:${SH}px;transition:opacity .6s"><div class="ref" style="height:${(REF * 100).toFixed(1)}%"></div><div class="fill" style="background:linear-gradient(0deg,${PAL.amber},${PAL.coral})"></div></div>`);
     this.fill = this.meter.querySelector('.fill');
     const svg = el('svg', { class: 'chart', width: SW + 40, height: SH + 80, viewBox: `-20 -40 ${SW + 40} ${SH + 80}` }); svg.style.left = (1360 - 20) + 'px'; svg.style.top = (top - 40) + 'px'; svg.style.transition = 'opacity .6s';
@@ -99,21 +109,21 @@ export default {
     el('line', { x1: 0, x2: SW, y1: yRef, y2: yRef, stroke: LINE2, 'stroke-width': 1.5, 'stroke-dasharray': '6 7' }, svg);
     // the reference band is named below the axis (legend style), so no trace ever runs through its label
     el('rect', { x: 0, y: SH + 13, width: 26, height: 18, rx: 3, fill: alpha(INK, .07), stroke: LINE2, 'stroke-width': 1.5, 'stroke-dasharray': '4 4' }, svg);
-    const rl = el('text', { x: 36, y: SH + 29, 'font-size': 20, fill: MUTE }, svg); rl.textContent = 'Erreferentzia-tartea';
+    const rl = el('text', { x: 36, y: SH + 29, 'font-size': 22, fill: MUTE }, svg); rl.textContent = 'Erreferentzia-tartea';
     el('path', { d: `M0 0 V${SH} H${SW}`, fill: 'none', stroke: alpha(INK, .5), 'stroke-width': 2 }, svg);
-    const xl = el('text', { x: SW, y: SH + 28, 'text-anchor': 'end', 'font-size': 20, fill: INK2 }, svg); xl.textContent = 'denbora →';
+    const xl = el('text', { x: SW, y: SH + 28, 'text-anchor': 'end', 'font-size': 22, fill: INK2 }, svg); xl.textContent = 'denbora →';
     // axis title sits above the plot so no trace can run through it
-    const yl = el('text', { x: 0, y: -14, 'font-size': 20, 'font-weight': 600, fill: INK }, svg); yl.textContent = 'Jarduera plasmatikoa';
-    const sc = el('text', { x: SW, y: -14, 'text-anchor': 'end', 'font-size': 20, fill: MUTE }, svg); sc.textContent = 'eskematikoa';
+    const yl = el('text', { x: 0, y: -14, 'font-size': 22, 'font-weight': 600, fill: INK }, svg); yl.textContent = 'Jarduera plasmatikoa';
+    const sc = el('text', { x: SW, y: -14, 'text-anchor': 'end', 'font-size': 22, fill: MUTE }, svg); sc.textContent = 'eskematikoa';
     this.area = el('path', { fill: alpha(PAL.amber, .12), stroke: 'none' }, svg);
     this.trace = el('path', { fill: 'none', stroke: PAL.amber, 'stroke-width': 3.5, 'stroke-linejoin': 'round', 'stroke-linecap': 'round' }, svg);
     this.tip = el('circle', { r: 7, fill: PAL.coral, stroke: PAPER, 'stroke-width': 2.5 }, svg);
     // figure-1 style summary: two families of causes
-    const step = (n, txt, b) => `<div class="mech" data-m="${b}" style="display:flex;gap:12px;align-items:baseline;white-space:nowrap;font:500 24px/1.25 var(--sans);color:var(--ink2);padding:4px 12px;margin:-4px 0;border-radius:10px;transition:background .4s,color .4s,opacity .4s"><span class="num" style="font:700 22px/1 var(--sans);color:var(--amber)">${n}</span>${txt}</div>`;
-    this.boxA = add(layer, `<div class="card" style="left:96px;top:950px;width:1040px;padding:16px 28px;display:flex;gap:22px;align-items:baseline">
-      <h4 style="font-size:24px;color:var(--coral);margin:0;white-space:nowrap">Odolera gehiago iristen da</h4>${step('1', 'Iragazkortasuna ↑', 1)}${step('2', 'Nekrosia', 2)}${step('3', 'Sintesi handiagoa', 3)}</div>`);
-    this.boxB = add(layer, `<div class="card" style="left:1160px;top:950px;width:560px;padding:16px 28px;display:flex;gap:22px;align-items:baseline">
-      <h4 style="font-size:24px;color:var(--blue);margin:0;white-space:nowrap">Eliminazioa moteltzen da</h4>${step('4', 'Luzaroago odolean', 4)}</div>`);
+    const step = (n, txt, b) => `<div class="idx-i mech" data-m="${b}"><span class="n">${n}</span>${txt}</div>`;
+    this.boxA = add(layer, `<div class="idx" style="left:1330px;top:728px;width:540px;transition:opacity .6s">
+      <div class="idx-g" style="--gc:${PAL.coral}"><div class="idx-h">Odolera gehiago iristen da</div>${step('1', 'Iragazkortasuna ↑', 1)}${step('2', 'Nekrosia', 2)}${step('3', 'Sintesi handiagoa', 3)}</div>
+      <div class="idx-g" style="--gc:${PAL.blue}"><div class="idx-h">Eliminazioa moteltzen da</div>${step('4', 'Luzaroago odolean', 4)}</div></div>`);
+    this.boxB = this.boxA;
     this.mechEls = [...layer.querySelectorAll('.mech')];
     // beat captions near the cell
     const cap = (b, html) => add(layer, `<div class="tag fx" data-b="${b}" style="left:120px;top:250px;font-size:30px;white-space:normal;width:760px">${html}</div>`);
@@ -122,19 +132,35 @@ export default {
     cap('2-2', `Nekrosia: mintzaren osotasuna galtzen da<small style="font-size:23px;margin-top:8px">zitosolekoak <b style="color:var(--coral)">●</b> mitokondrioetakoak <b style="color:var(--gold)">●</b> baino errazago askatzen dira</small>`);
     cap('3-3', `Zelulak entzima <span style="color:var(--amber)">gehiago sintetizatzen</span> du`);
     cap('4-4', `Askapena normala, baina <span style="color:var(--blue)">eliminazioa motelagoa</span> → metatu egiten da`);
+    const mechanisms=new THREE.Group();
+    for(const obj of [...S.scene.children]) if(!obj.isLight && obj!==S.backdrop && obj!==S.dust.mesh) mechanisms.add(obj);
+    S.scene.add(mechanisms);this.mechanisms=mechanisms;
+    this.exampleStreams=[];
+    this.examples=new THREE.Group();S.scene.add(this.examples);
+    this.exampleFills=[0,1,2].map(i=>{
+      const g=new THREE.Group();g.position.set((i-1)*3.34-.21,-.05,0);this.examples.add(g);
+      const organ=specimen(['bone','placenta','muscle'][i]);organ.position.set(-.48,0,0);g.add(organ);
+      const stream=new Pts(12);g.add(stream.mesh);this.exampleStreams.push({stream,color:C(i<2?COL3.mint:COL3.coral)});
+      const glass=glassCylinder({r:.18,h:1.10});glass.position.set(.66,.02,0);g.add(glass);
+      const fill=new THREE.Mesh(new THREE.CylinderGeometry(.155,.155,1,28),liquidMat(i<2?COL3.mint:COL3.coral));glass.add(fill);return fill;
+    });
+    this.examples.visible=false;
     // physiological rises
     const ph = [['bone', 'Hazkundea', 'hezur-jarduera', 'ALP', COL.mint], ['placenta', 'Haurdunaldia', 'plazentako ALP', 'ALP', COL.mint], ['muscle', 'Ariketa bizia', 'muskulua', 'CK', COL.coral]];
     // a separate idea: the balance scene steps back behind a light frosted scrim and the three cases take a clean stage
-    add(layer, `<div class="fx fade" data-b="5" style="position:absolute;left:0;right:0;top:196px;bottom:0;background:radial-gradient(70% 70% at 50% 40%,rgba(251,249,245,.9),rgba(251,249,245,.74));backdrop-filter:blur(5px);-webkit-mask-image:linear-gradient(transparent,#000 60px);mask-image:linear-gradient(transparent,#000 60px)"></div>`);
-    add(layer, `<div class="tag fx d1" data-b="5" style="left:0;right:0;top:300px;text-align:center;font-size:40px;font-weight:500">Igoera <span style="color:var(--amber);font-weight:700">fisiologikoa</span> ere izan daiteke</div>`);
-    ph.forEach(([ic, a, b2, e, c], i) => add(layer, `<div class="card pop d${i + 2}" data-b="5" style="left:${336 + i * 428}px;top:400px;width:392px;text-align:center;padding:34px 24px 30px">
-      ${icon(ic, 120, c)}<h4 style="margin-top:16px;font-size:36px">${a}</h4><p style="font-size:26px">${b2}</p><div class="pill" style="color:${c};margin-top:18px;font-size:28px">${e} ↑</div></div>`));
+
+    add(layer, `<div class="tag fx d1" data-b="5" style="left:0;right:0;top:290px;text-align:center;font:400 52px/1.1 var(--serif);letter-spacing:-.01em">Igoera <em style="color:var(--acc)">fisiologikoa</em> ere izan daiteke</div>`);
+    // no cards: each vignette is named right under its 3D object (title, source, the enzyme that rises)
+    ph.forEach(([ic, a, b2, e, c], i) => add(layer, `<div class="abs fx d${i + 2}" data-b="5" style="left:${336 + i * 428}px;top:700px;width:392px;text-align:center">
+      <div style="width:40px;height:2px;margin:0 auto 18px;border-radius:1px;background:${c}"></div>
+      <div style="font:400 44px/1.05 var(--serif);color:var(--ink);letter-spacing:-.01em">${a}</div><div style="font:400 26px/1.3 var(--sans);color:var(--ink2);margin-top:8px">${b2}</div>
+      <div class="pill" style="color:${c};margin-top:18px;font-size:26px">${e} ↑</div></div>`));
     this.labs = [
       new Label(layer, 'Ehuneko zelula', { color: PAL.coral, anchor: V(-1.2, -1.2, 0), obj: cell.group, side: 'l', b: '-4' }),
       // after necrosis the ghost keeps a name, on a pill so the spray of debris never makes it illegible
       new Label(layer, 'Zelula nekrotikoa', { color: PAL.coral, anchor: V(-1.2, -1.2, 0), obj: cell.group, side: 'l', b: '-4' }),
       new Label(layer, 'Plasma <span style="font-weight:400">(odola)</span>', { color: PAL.amber, anchor: V(0, POOL.y1 + .95, 0), obj: pool, b: '-4' }),
-      new Label(layer, 'eliminazioa<small>batez ere katabolismoa</small><small>giltzurruna: entzima txikiak</small>', { color: PAL.blue, anchor: V(.35, POOL.y0 - .7, 0), obj: pool, side: 'r', b: '-4' }),
+      new Label(layer, 'eliminazioa<small>batez ere katabolismoa</small><small>giltzurruna: entzima txikiak</small>', { color: PAL.blue, anchor: V(-.35, POOL.y0 - .7, 0), obj: pool, side: 'l', b: '-4' }),
     ];
     this.labs[1].el.classList.add('bg');
   },
@@ -156,6 +182,8 @@ export default {
   beat(b, dir) { this.apply(b, false, dir); },
   apply(b, instant, dir = 0) {
     const M = MODES[b], prev = this.mode; this.mode = M; this.b = b;
+    const cx=b===1?-.65:b===4?.32:-.2, dist=b===2?15.1:b===1?13.15:14;
+    this.rig.go(V(cx,.62,dist),V(cx,.12,0),2.15,34);
     const d = instant ? 0 : 1.2;
     // every mechanism starts from the basal balance: extra enzymes in the plasma fade away so the meter restarts at the reference range
     // (enzymes still on their way from the previous mechanism fade too, beyond a basal trickle, so each trace starts clean)
@@ -174,11 +202,11 @@ export default {
     }
     if (!M.shatter && prev.shatter && !instant) { this.necT0 = null; this.recover.set(0).to(1, 1.6, ease.io); this.refill(); }
     if (instant && !M.shatter) { this.necT0 = null; this.recover.set(1); this.refill(); }
-    // highlight the mechanism being shown (ink text on a soft amber tint), dim the others
+    // highlight the mechanism being shown (accent marker + ink), the others step back
     this.mechEls.forEach(e => { const n = +e.dataset.m; const on = b === n;
-      e.style.color = on ? INK : ''; e.style.background = on ? alpha(PAL.amber, .14) : 'transparent'; e.style.fontWeight = on ? 700 : '';
-      e.style.opacity = b === 0 || b === 5 || on ? 1 : .4; });
-    const dim = b === 5 ? .25 : 1;
+      e.classList.toggle('on', on); e.classList.toggle('dim', !(b === 0 || b === 5 || on)); });
+    this.mechanisms.visible=b!==5;this.examples.visible=b===5;this.exampleStart=clock.t;
+    const dim = b === 5 ? 0 : 1;
     this.boxA.style.opacity = dim; this.boxB.style.opacity = dim; this.panel.style.opacity = dim; this.meter.style.opacity = dim; this.strip.style.opacity = dim;
   },
   // necrosis visuals; returns the progress 0..1 (1 = cell gone) used by the label and the release logic
@@ -188,7 +216,7 @@ export default {
     if (this.necT0 != null) {
       const u = t - this.necT0;
       swell = sm(u / .55) * .13;                               // oncosis: water rushes in
-      shat = .5 * ease.out(clamp((u - .5) / 2.8));             // the membrane tears into drifting fragments
+      shat = .27 * ease.out(clamp((u - .5) / 2.8));             // the membrane tears into drifting fragments
       mem = 1 - sm((u - 2.3) / 1.8); cyto = 1 - sm((u - .45) / .7);
       ghost = sm((u - 2.2) / 1.6); pyk = sm((u - .8) / 2.2);
       mSw = sm((u - .7) / 1.2); mGone = u > 1.9 ? 1 : 0; mfl = clamp(1 - Math.abs(u - 2.05) * 3.5);
@@ -206,7 +234,7 @@ export default {
     this.ghost.material.uniforms.uOpacity.value = ghost; this.ghost.visible = ghost > .01;
     const dv = this.debris.n;
     if (deb > 0 && deb < 3.5) { const cp = c.group.position, R0 = c.R;
-      for (let i = 0; i < dv; i++) { const d = this.dDir[i], r = R0 * (1.02 + deb * d.sp * .55); this.debris.set(i, cp.x + d.v.x * r, cp.y + d.v.y * r - deb * deb * .12, cp.z + d.v.z * r, d.s, this.cCyt, (1 - sm(deb / 3.5)) * .8); }
+      for (let i = 0; i < dv; i++) { const d = this.dDir[i], r = R0 * (1.02 + deb * d.sp * .29); this.debris.set(i, cp.x + d.v.x * r, cp.y + d.v.y * r - deb * deb * .12, cp.z + d.v.z * r, d.s, this.cCyt, (1 - sm(deb / 3.5)) * .8); }
       this.debris.mesh.visible = true; this.debris.commit();
     } else this.debris.mesh.visible = false;
     return prog;
@@ -228,6 +256,17 @@ export default {
   },
   update(dt, t) {
     this.rig.update(t); this.S.dust.update(t);
+    if(this.b===2&&this.necT0!=null){const dtBurst=t-this.necT0-.55;if(dtBurst>=0&&dtBurst<.2)this.camera.position.x+=.037*Math.sin(dtBurst*110)*(1-dtBurst/.2);}
+    if(this.b===5){
+      this.exampleStreams.forEach(({stream,color},i)=>{
+        for(let j=0;j<12;j++){const f=(t*.53+j/12+i*.17)%1;
+          stream.set(j,-.25+.92*f,.08+.65*Math.sin(Math.PI*f)+.23*f,.19,.065,color,Math.sin(Math.PI*f));}
+        stream.commit();
+      });
+      this.exampleFills.forEach((m,i)=>{const u=clamp((t-this.exampleStart-i*.25)/1.1);m.scale.y=.20+.6*ease.io(u);m.position.y=-.53+m.scale.y/2;this.examples.children[i].position.x=(i-1)*3.34-.21+1.25*(1-ease.out(u));});
+      for(const l of this.labs)l.update(this.camera);
+      return;
+    }
     const M = this.mode, R = this.R;
     const pore = this.pore.v; this.cell.memU.uPore.value = pore;
     const sh = this.necrosis(t);
@@ -276,7 +315,7 @@ export default {
         a.p.addScaledVector(a.v, dt);
         const dx = a.p.x - POOL.x, dz = a.p.z, rr = Math.hypot(dx, dz), lim = POOL.r - .12;
         if (rr > lim) { a.p.x = POOL.x + dx / rr * lim; a.p.z = dz / rr * lim; a.v.x *= -.5; a.v.z *= -.5; }
-        const ylo = POOL.y + POOL.y0 + .12, yhi = POOL.y + POOL.y1 - .05;
+        const ylo = POOL.y + POOL.y0 + .12, yhi = POOL.y + POOL.y0 + (POOL.y1-POOL.y0)*(.42+.58*clamp(this.Ns/FULL)) - .05;
         if (a.p.y < ylo) { a.p.y = ylo; a.v.y = Math.abs(a.v.y) * .5; } if (a.p.y > yhi) { a.p.y = yhi; a.v.y = -Math.abs(a.v.y) * .5; }
         this.tmp.copy(a.p);
       }
@@ -294,7 +333,7 @@ export default {
     // fluxes: measured arrivals (smoothed over ~3 s) vs removal = k × amount in the plasma
     const tau = 1.5; this.inR = this.inR * Math.exp(-dt / tau) + arrived / tau;
     this.inD = damp(this.inD, this.inR, 2, dt); this.outD = damp(this.outD, kk * this.Ns, 2, dt);
-    this.bIn.style.width = (clamp(this.inD / FMAX) * 100).toFixed(1) + '%'; this.bOut.style.width = (clamp(this.outD / FMAX) * 100).toFixed(1) + '%';
+    this.bIn.style.transform = 'scaleX('+clamp(this.inD/FMAX).toFixed(3)+')'; this.bOut.style.transform = 'scaleX('+clamp(this.outD/FMAX).toFixed(3)+')';
     // verdict: arrival vs removal as drawn by the bars. A tight threshold (a gap of ~10 % already reads as rising /
     // falling, which is what the strip chart shows) with hysteresis and a short hold, so basal noise never flickers it.
     const diff = this.inD - this.outD, mx = Math.max(this.inD, this.outD), on = .08 * mx + .25, off = .03 * mx + .15;
@@ -314,6 +353,9 @@ export default {
     this.tube.material.opacity = .05 + clamp(this.inD / FMAX) * .4;
     // pool + meter + strip chart all read the same amount
     const lvl = clamp(this.Ns / FULL);
+    const depth=.42+.58*clamp(lvl); this.liquid.scale.y=depth;
+    this.liquid.position.y=POOL.y0+(POOL.y1-POOL.y0)*depth/2;
+    this.surf.position.y=POOL.y0+(POOL.y1-POOL.y0)*depth+.04;
     this.liquid.material.uniforms.uI.value = .25 + lvl * .5; this.surf.material.opacity = .15 + lvl * .3;
     const dr = this.drainR.v; this.pipe.scale.set(dr, 1, dr); this.valve.scale.setScalar(.6 + dr * .4);
     this.fill.style.height = (lvl * (SH - 8)).toFixed(1) + 'px';
@@ -321,7 +363,7 @@ export default {
     if (this.hAcc >= DTS) { this.hAcc -= DTS; if (this.hn === NS) { this.hist.copyWithin(0, 1); this.hn--; } this.hist[this.hn++] = lvl; this.drawStrip(); }
     this.labs[0].vis = 1 - clamp(sh * 2.5); this.labs[1].vis = clamp(sh * 2.5 - 1.2); // the healthy-cell label hands over to the necrotic one
     for (let i = 0; i < this.flowS.length; i++) { const f = this.flowS[i], a = f.a + t * .5 / (f.r + .35);
-      this.flow.set(i, Math.cos(a) * f.r, f.y + Math.sin(t * .7 + f.ph) * .06, Math.sin(a) * f.r, f.s, this.cFlow, .35 + .2 * Math.sin(a * 2 + f.ph)); }
+      this.flow.set(i, Math.cos(a) * f.r, POOL.y0 + (f.y-POOL.y0)*depth + Math.sin(t * .7 + f.ph)*.035, Math.sin(a) * f.r, f.s, this.cFlow, .35 + .2 * Math.sin(a * 2 + f.ph)); }
     this.flow.commit();
     for (const l of this.labs) l.update(this.camera);
   },

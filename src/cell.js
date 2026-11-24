@@ -1,4 +1,5 @@
 // A tissue cell: breathing membrane (pores / shatter), nucleus, mitochondria, faint cytosol.
+import { organMat } from './optics.js';
 import { THREE, rng } from './core.js';
 import { membraneGeo, membraneMat, fresnelMat, blobGeo, mito, C, COL3 } from './lib3d.js';
 
@@ -8,7 +9,7 @@ export function makeCell({ R = 1.6, nMito = 4, seed = 3, tint = COL3.membrane } 
   group.add(mem);
   const cyto = new THREE.Mesh(new THREE.SphereGeometry(R * .985, 48, 32), fresnelMat({ color: COL3.cyto, power: 1.2, intensity: .18, base: .1, side: THREE.BackSide }));
   group.add(cyto);
-  const nucMat = new THREE.MeshPhysicalMaterial({ color: C('#7458d4'), roughness: .35, clearcoat: .8, sheen: .6, sheenColor: C('#c9b8ff'), emissive: C('#2b1b66'), emissiveIntensity: .1, envMapIntensity: .7, transparent: true });
+  const nucMat = organMat({ color: C('#7458d4'), roughness: .35, clearcoat: .8, sheen: .6, sheenColor: C('#c9b8ff'), emissive: C('#2b1b66'), emissiveIntensity: .1, envMapIntensity: .7, transparent: true });
   const nucleus = new THREE.Mesh(blobGeo(seed + 10, R * .36, { lumps: 6, amp: .1, noise: .03 }), nucMat);
   nucleus.position.set(-R * .18, R * .12, -R * .1); group.add(nucleus);
   const nl = new THREE.Mesh(new THREE.SphereGeometry(R * .1, 24, 16), new THREE.MeshStandardMaterial({ color: '#4a2f9a', emissive: '#4b2fa0', emissiveIntensity: .15, transparent: true }));

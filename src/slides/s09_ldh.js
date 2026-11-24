@@ -6,6 +6,7 @@ import { PAL, COL3, alpha } from '../theme.js';
 import { CamRig, V } from '../rig.js';
 import { icon } from '../icons.js';
 import { assemblySim, pin, mixBar, subunitGeo, faceIn } from './s08_s09_assembly.js';
+const _bf = new THREE.Vector3(); // scratch vector for the bridge focus
 
 const H3 = COL3.red, M3 = COL3.blue, HT = PAL.red, MT = PAL.blue;
 const COMP = [4, 3, 2, 1, 0]; // number of H subunits in LDH1..LDH5
@@ -20,6 +21,8 @@ const formula = nH => `${nH ? `<span style="color:${HT}">H${nH > 1 ? '<sub>' + n
 
 export default {
   id: 'ldh', chapter: 3, beats: 5, title: 'Isoentzimak: LDH', bloom: .45,
+  bridgeIn: { focus() { return this.tets[2].g.getWorldPosition(_bf); } },            // the middle isoenzyme, assembling
+  bridge: { mode: 'drop', focus() { return this.hg.localToWorld(_bf.set(0, -.12, 0)); } },  // into the haemolysed sample ...
   build(layer) {
     const S = makeScene({ gx: .5, gy: .45 }); this.S = S; this.scene = S.scene; this.camera = S.camera;
     this.shots = [[V(0, .3, 13), V(0, .25, 0), 34], SIM, SIM, SIM, [V(.9, HEMO.y + .75, 10), V(.9, HEMO.y + .45, 0), 34]];
@@ -53,15 +56,18 @@ export default {
     for (let i = 0; i < 26; i++) { const m = new THREE.Mesh(rg, rm); const an = R() * 6.28, rr = Math.sqrt(R()) * 1.05; m.position.set(Math.cos(an) * rr, -1.3 + R() * 2.4, Math.sin(an) * rr); m.rotation.set(R() * 3, R() * 3, R() * 3); hg.add(m);
       this.rbcs.push({ m, burst: i % 3 === 0, at: (i / 3) * .45 + R() * .3, home: m.position.clone(), ph: R() * 6 }); }
     const bursters = this.rbcs.filter(r => r.burst);
+    const section=new THREE.LatheGeometry(rg.parameters.points.filter((_,i)=>i%3===0),10,0,Math.PI*.61);
+    this.shards=new THREE.InstancedMesh(section,rm,bursters.length*3);this.shards.frustumCulled=false;this.shards.count=0;hg.add(this.shards);
+    this.shardPose=new THREE.Object3D();this.shardOffset=new THREE.Vector3();
     this.spill = new Pts(260); hg.add(this.spill.mesh); this.sp = [];
     for (let i = 0; i < 260; i++) this.sp.push({ src: bursters[i % bursters.length], d: V(R() - .5, R() - .5, R() - .5).normalize().multiplyScalar(.3 + R() * .9), ph: R() * 6 });
-    this.spillC = C(COL3.red);
+    this.spillC = C(COL3.blue);
     this.hemo = new Tw(0);
-    this.meter = add(layer, `<div class="meter" data-b="4" style="left:1250px;top:300px;height:420px"><div class="ref" style="height:24%"></div><div class="fill" style="background:linear-gradient(0deg,${PAL.red},${alpha(PAL.red, .55)})"></div></div>`);
+    this.meter = add(layer, `<div class="meter" data-b="4" style="left:1272px;top:300px;height:420px"><div class="ref" style="height:24%"></div><div class="fill" style="background:linear-gradient(0deg,${PAL.red},${alpha(PAL.red, .55)})"></div></div>`);
     this.mfill = this.meter.querySelector('.fill');
-    add(layer, `<div class="tag" data-b="4" style="left:1190px;top:740px;width:166px;text-align:center;color:var(--red)">LDH<small>plasman</small></div>`);
-    add(layer, `<div class="note" data-b="4" style="left:1060px;top:640px;width:176px;text-align:right;font-size:18px">erreferentzia-<br>tartea</div>`);
-    this.fake = add(layer, `<div class="pill" data-b="4" style="position:absolute;left:1166px;top:236px;color:var(--red);opacity:0;transition:opacity .5s">↑ artifiziala</div>`);
+    add(layer, `<div class="tag" data-b="4" style="left:1212px;top:740px;width:166px;text-align:center;color:var(--red)">LDH<small>plasman</small></div>`);
+    add(layer, `<div class="note" data-b="4" style="left:1078px;top:636px;width:180px;text-align:right;font-size:22px;line-height:1.15">erreferentzia-<br>tartea</div>`);
+    this.fake = add(layer, `<div class="pill" data-b="4" style="position:absolute;left:auto;right:668px;top:600px;font-size:22px;padding:7px 14px 8px;color:var(--red);opacity:0;transition:opacity .5s">↑ artifiziala</div>`);
     this.fakeIn = this.fake;
 
     // ---------------------------------------------------------------- text
@@ -77,16 +83,17 @@ export default {
       <div style="font:700 38px/1 var(--sans);color:var(--ink)">LDH${i + 1}</div><div style="font:600 30px/1 var(--sans);margin-top:10px">${formula(nH)}</div></div>`));
     add(layer, `<div class="note" data-b="0-0" style="left:0;right:0;top:820px;text-align:center;font-size:26px">LDH: piruvato + NADH ⇄ laktatoa + NAD⁺ · forma guztietan erreakzio bera</div>`);
     const TIS = [[[['heart', PAL.red], ['rbc', PAL.red]], 'Miokardioa · eritrozitoak', PAL.red], [[['tissue', PAL.violet]], 'Ehun askotan', PAL.violet], [[['liver', PAL.blue], ['muscle', PAL.blue]], 'Gibela · hezur-muskulua', PAL.blue]];
-    this.chips = TIS.map(([ics, name, c], i) => add(layer, `<div class="abs" data-b="1-3" style="left:${96 + i * 290}px;top:300px;width:280px"><div style="box-sizing:border-box;display:flex;align-items:center;gap:6px;padding:6px 10px;border-radius:14px;border:1.5px solid ${alpha(c, .35)};background:rgba(255,255,255,.7);font:600 18px/1.1 var(--sans);white-space:nowrap;color:${c};transition:opacity .5s,transform .5s,background .5s">${ics.map(([n, cc]) => icon(n, 34, cc)).join('')}<span>${name}</span></div></div>`).firstElementChild);
-    this.mix = mixBar(layer, add, { left: 150, top: 856, width: 560, names: ['H', 'M'], colors: [HT, MT], b: '1-3' });
-    this.colNames = COMP.map((nH, i) => add(layer, `<div class="abs pin" data-b="1-3" style="left:0;top:0;text-align:center;white-space:nowrap"><div style="font:700 28px/1 var(--sans);color:var(--ink)">LDH${i + 1}</div><div style="font:600 22px/1 var(--sans);margin-top:6px">${formula(nH)}</div></div>`));
-    add(layer, `<div class="abs" data-b="1-3" style="left:940px;top:318px;width:760px;text-align:center;font:600 19px/1.2 var(--sans);letter-spacing:2px;color:var(--mute)">SORTZEN DIREN ISOENTZIMAK</div>`);
-    add(layer, `<div class="note" data-b="1-3" style="left:940px;top:350px;width:760px;text-align:center;font-size:19px">- - - ausazko elkarketak espero duena · proportzio eskematikoak</div>`);
-    add(layer, `<div class="key" data-b="3-3" style="left:110px;top:926px;bottom:auto;font-size:25px;max-width:700px">LDH osoak jatorri askotako igoerak biltzen ditu → <em>proportzioek</em> jatorria zehazten laguntzen dute</div>`);
-    add(layer, `<div class="card r" data-b="4" style="left:1380px;top:280px;width:450px">
-      <h4 style="color:var(--red)">Hemolisia</h4><p>Eritrozitoek beren LDH askatzen dute → jarduera <b style="color:var(--ink)">artifizialki</b> igotzen da</p>
-      <p style="margin-top:18px;color:var(--amber)">Interpretatu aurretik: <b>laginaren kalitatea</b> begiratu</p></div>`);
-    if (!this.colAnch) this.colAnch = COLX.map(x => V(x, -2.25, .4));
+    const chipRow = add(layer, `<div class="abs" data-b="1-3" style="left:96px;top:300px;display:flex;gap:12px">${TIS.map(([ics, name, c]) => `<div style="box-sizing:border-box;display:flex;align-items:center;gap:6px;padding:5px 14px 5px 8px;border-radius:14px;border:1.5px solid ${alpha(c, .35)};background:rgba(255,255,255,.6);font:600 22px/1.1 var(--sans);white-space:nowrap;color:${c};opacity:.45;transition:opacity .5s,background .5s,border-color .5s">${ics.map(([n, cc]) => icon(n, 30, cc)).join('')}<span>${name}</span></div>`).join('')}</div>`);
+    this.chips = [...chipRow.children]; this.chipC = TIS.map(t => t[2]);
+    this.mix = mixBar(layer, add, { left: 150, top: 826, width: 560, names: ['H', 'M'], colors: [HT, MT], b: '1-3' });
+    this.colNames = COMP.map((nH, i) => add(layer, `<div class="abs pin" data-b="1-3" style="left:0;top:0;text-align:center;white-space:nowrap"><div style="font:700 28px/1 var(--sans);color:var(--ink)">LDH${i + 1}</div><div style="font:600 26px/1 var(--sans);margin-top:4px">${formula(nH)}</div></div>`));
+    add(layer, `<div class="abs kicker" data-b="1-3" style="left:940px;top:316px;width:760px;text-align:center">Sortzen diren isoentzimak</div>`);
+    add(layer, `<div class="note" data-b="1-3" style="left:900px;top:350px;width:840px;text-align:center;font-size:22px">- - - ausazko elkarketak espero duena · proportzio eskematikoak</div>`);
+    add(layer, `<div class="key" data-b="3-3" style="left:150px;top:902px;bottom:auto;font-size:24px;line-height:1.2;max-width:640px">LDH osoak jatorri askotako igoerak biltzen ditu → <em>proportzioek</em> jatorria zehazten laguntzen dute</div>`);
+    add(layer, `<div class="fx d1" data-b="4" style="position:absolute;left:1400px;top:292px;font:400 60px/1 var(--serif);letter-spacing:-.01em;color:var(--red)">Hemolisia</div>`);
+    add(layer, `<div class="fx d2" data-b="4" style="position:absolute;left:1400px;top:378px;width:440px;font:400 25px/1.42 var(--sans);color:var(--ink2)">Eritrozitoek beren LDH askatzen dute → jarduera <b style="color:var(--ink);font-weight:600">artifizialki</b> igotzen da</div>`);
+    add(layer, `<div class="fx d3" data-b="4" style="position:absolute;left:1400px;top:508px;width:440px;padding:2px 0 2px 18px;border-left:2px solid var(--amber);font:500 24px/1.38 var(--sans);color:#8a4a06">Interpretatu aurretik: <b style="font-weight:650">laginaren kalitatea</b> begiratu</div>`);
+    if (!this.colAnch) this.colAnch = COLX.map(x => V(x, -2.16, .4));
   },
   enter(b) {
     const s = this.shots[b]; this.rig.arrive(s[0], s[1], s[2]);
@@ -108,7 +115,7 @@ export default {
     if (T) { if (inst || Math.abs(this.sim.p - T.p) > 1e-6) this.sim.setP(T.p, inst); this.mix.set(T.p); }
     this.sim.run(b >= 1 && b <= 3);
     this.sim.highlight(T ? [0, 2, 4][T.k] : -1, 1);
-    this.chips.forEach((c, i) => { const on = T && T.k === i; c.style.opacity = on ? 1 : .45; c.style.transform = on ? 'scale(1.05)' : 'none'; c.style.background = on ? 'rgba(255,255,255,.95)' : 'rgba(255,255,255,.6)'; });
+    this.chips.forEach((c, i) => { const on = T && T.k === i; c.style.opacity = on ? 1 : .45; c.style.borderColor = alpha(this.chipC[i], on ? .7 : .35); c.style.background = on ? 'rgba(255,255,255,.95)' : 'rgba(255,255,255,.6)'; });
   },
   update(dt, t) {
     this.rig.update(t); this.S.dust.update(t);
@@ -120,7 +127,7 @@ export default {
       this.tets.forEach((T, i) => {
         T.g.rotation.y = t * .4 + i * .7; T.g.rotation.x = Math.sin(t * .35 + i) * .25;
         const br = .02 * Math.sin(t * 1.2 + i * 1.3); // breathing: the four subunits open and close a little
-        T.subs.forEach(s => { const u = ease.out(clamp((k * 4.2 - s.delay) / 1.6)); s.m.position.lerpVectors(s.from, s.slot, u).addScaledVector(s.slot, br * u / RS);
+        T.subs.forEach(s => { const u = i===2 ? .86+.14*ease.out(k) : ease.out(clamp((k*4.2-s.delay)/1.6)); s.m.position.lerpVectors(s.from, s.slot, u).addScaledVector(s.slot, br * u / RS);
           s.m.quaternion.slerpQuaternions(s.q0, s.q1, u); s.m.scale.setScalar(.2 + .8 * u); });
       });
     }
@@ -132,13 +139,23 @@ export default {
     // haemolysis: burst cells → LDH leaves them → plasma LDH rises with the number of burst cells
     const h = this.hemo.v;
     if (this.b === 4 || h > 0) {
-      let burst = 0;
+      let burst = 0, fragments=0;
       for (const r of this.rbcs) {
         const u = r.burst ? clamp((h * 4.5 - r.at) / .5) : 0;
         r.m.position.set(r.home.x + Math.sin(t * .5 + r.ph) * .06, r.home.y + Math.sin(t * .4 + r.ph) * .08, r.home.z);
         r.m.rotation.y += dt * .3; r.m.scale.setScalar(u < .6 ? 1 + u * .5 : Math.max(.001, (1 - u) * 3));
-        r.m.visible = u < .99; burst += u;
+        r.m.visible = u < .54; burst += u;
+        if(u>=.54){
+          const openness=(u-.54)/.46,age=Math.max(0,h*4.5-r.at-.5);
+          for(let j=0;j<3&&age<.95;j++){
+            const angle=j*2*Math.PI/3,pose=this.shardPose;
+            pose.position.copy(r.m.position).add(this.shardOffset.set(Math.sin(angle)*.22*openness,-age*.19,Math.cos(angle)*.22*openness).applyQuaternion(r.m.quaternion));
+            pose.quaternion.copy(r.m.quaternion);pose.rotateY(angle+openness*.24);pose.rotateX(openness*.32);
+            pose.scale.setScalar((1.15-.3*openness)*Math.max(.01,1-age));pose.updateMatrix();this.shards.setMatrixAt(fragments++,pose.matrix);
+          }
+        }
       }
+      this.shards.count=fragments; this.shards.instanceMatrix.needsUpdate=true;
       for (let i = 0; i < this.sp.length; i++) { const p = this.sp[i], u = clamp((h * 4.5 - p.src.at) / .5), sp = clamp((u - .6) / .4);
         const drift = clamp(h * 4.5 - p.src.at - .5) * .35;
         const x = p.src.home.x + p.d.x * (sp + drift) * 1.4, y = p.src.home.y + p.d.y * (sp + drift) * 1.4 + Math.sin(t + p.ph) * .04, z = p.src.home.z + p.d.z * (sp + drift);
@@ -149,7 +166,7 @@ export default {
       this.plasma.material.uniforms.uC.value.copy(this.plasmaC).lerp(this.hemoC, f * .85);
       const lvl = 60 + f * 300; // px; reference line at 24 % of 420 px ≈ 100 px
       this.mfill.style.height = lvl + 'px';
-      this.fake.style.opacity = this.b === 4 && lvl > 104 ? 1 : 0;
+      this.fake.style.opacity = this.b === 4 && lvl > 104 ? 1 : 0; this.fake.style.top = (716 - lvl - 20).toFixed(1) + 'px';
     }
   },
 };

@@ -7,6 +7,7 @@
 // After a change of tissue (setP) the running share forgets the old mix fast: oligomers formed after the change
 // are averaged with weight 1/(k+K0) (k = how many have landed since), falling back to 1/win, so the columns
 // settle on the new pattern within ~2 s of clicking while still being built only from the oligomers that land.
+import { makeCell } from '../cell.js';
 import { THREE, clamp, ease, rng, screenOf } from '../core.js';
 import { glassCylinder, contactShadow, halo, C, fixSphereSeams } from '../lib3d.js';
 import { COL3, INK } from '../theme.js';
@@ -94,9 +95,11 @@ export function assemblySim(parent, {
   const nf = size + 1;
   // ---------------------------------------------------------------- pool backdrop: a soft cytosol wash
   const cyto = halo(COL3.cyto, 1, .32); cyto.scale.set(pool.rx * 2.9, pool.ry * 2.9, 1); cyto.position.set(pool.x, pool.y, -.8); poolG.add(cyto);
-  const ringPts = []; for (let i = 0; i <= 96; i++) { const a = i / 96 * Math.PI * 2; ringPts.push(new THREE.Vector3(pool.x + Math.cos(a) * (pool.rx + .35), pool.y + Math.sin(a) * (pool.ry + .3), -.3)); }
-  const memb = new THREE.Line(new THREE.BufferGeometry().setFromPoints(ringPts), new THREE.LineBasicMaterial({ color: C(COL3.membrane), transparent: true, opacity: .55 }));
-  poolG.add(memb);
+  const cell=makeCell({R:1,nMito:2,seed});
+  cell.group.position.set(pool.x,pool.y,-.48); cell.group.scale.set(pool.rx+.34,pool.ry+.24,.49);
+  cell.nucleus.scale.multiplyScalar(.65); cell.nucleus.position.x=-.65;
+  cell.memU.uOpacity && (cell.memU.uOpacity.value=.55);
+  poolG.add(cell.group);
   // ---------------------------------------------------------------- subunits
   const bl = instancedSubunits(n, { r, glow: .15, seed: seed + 2 }); poolG.add(bl);
   const cK = colors.map(c => C(c));
@@ -188,7 +191,7 @@ export function assemblySim(parent, {
     picked.sort(() => R() - .5);
     picked.forEach((i, k) => { const s = S[i]; s.st = 1; s.t0 = t; s.from.copy(s.p); s.slot = slot(k); s.je = 0; tumble(s, t, s.q0); faceIn(s.qT, s.slot, size === 2 ? 0 : k * 1.3); });
     const c = columns[j];
-    olig.push({ m: picked, j, t0: t, gen, meet, p1: new THREE.Vector3((meet.x + c.x) / 2 + .4, colBase + colH + .6, 0), p2: new THREE.Vector3(c.x, colBase + clamp(c.share * colH, .15, colH * .78) + .05, 0), rot: R() * 6 });
+    olig.push({ m: picked, j, t0: t, gen, meet, p1: new THREE.Vector3((meet.x + c.x) / 2 + .4, colBase + colH * .84, 0), p2: new THREE.Vector3(c.x, colBase + clamp(c.share * colH, .15, colH * .78) + .05, 0), rot: R() * 6 });
   }
   const tmp = new THREE.Vector3(), m4 = new THREE.Matrix4(), q = new THREE.Quaternion(), sc = new THREE.Vector3(), eu = new THREE.Euler(), _Y = new THREE.Vector3(0, 1, 0);
   function absorb(o) {
@@ -268,7 +271,7 @@ export function pin(el, v3, cam, obj, dy = 0) {
 // a two-colour bar showing the subunit mix of the pool (cause), under the pool
 export function mixBar(layer, add, { left, top, width, names, colors, b }) {
   const e = add(layer, `<div class="abs" data-b="${b}" style="left:${left}px;top:${top}px;width:${width}px">
-    <div style="display:flex;justify-content:space-between;font:700 24px/1 var(--sans);margin-bottom:8px"><span style="color:${colors[0]}">${names[0]}</span><span style="font:600 19px/1.2 var(--sans);color:var(--mute);letter-spacing:2px">AZPIUNITATEAK ZELULAN</span><span style="color:${colors[1]}">${names[1]}</span></div>
+    <div style="display:flex;justify-content:space-between;font:700 24px/1 var(--sans);margin-bottom:8px"><span style="color:${colors[0]}">${names[0]}</span><span class="kicker" style="line-height:1.1">Azpiunitateak zelulan</span><span style="color:${colors[1]}">${names[1]}</span></div>
     <div style="display:flex;height:22px;border-radius:11px;overflow:hidden;border:1px solid var(--line);background:${colors[1]}"><div class="mx" style="width:50%;background:${colors[0]};transition:width .9s cubic-bezier(.3,0,.2,1)"></div></div></div>`);
   const bar = e.querySelector('.mx');
   return { el: e, set(p) { bar.style.width = (p * 100).toFixed(1) + '%'; } };

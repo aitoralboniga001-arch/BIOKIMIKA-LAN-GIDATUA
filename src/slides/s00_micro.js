@@ -9,7 +9,7 @@ const sstep = (a, b, x) => { const t = Math.min(1, Math.max(0, (x - a) / (b - a)
 
 // two-domain protein with a groove between the domains (opening towards local +z) and a warm active-site spot at its floor
 function enzymeGeo(seed = 7) {
-  const ws = 80, hs = 60, g = new THREE.SphereGeometry(1, ws, hs), R = rng(seed);
+  const ws = 48, hs = 34, g = new THREE.SphereGeometry(1, ws, hs), R = rng(seed);
   const lumps = [{ d: V(-.78, .14, .05).normalize(), a: .17, s: 2.3 }, { d: V(.78, -.12, .05).normalize(), a: .17, s: 2.3 }];
   for (let i = 0; i < 26; i++) lumps.push({ d: V(R() - .5, R() - .5, R() - .5).normalize(), a: .02 + R() * .035, s: 9 + R() * 14 });
   const p = g.attributes.position, v = new THREE.Vector3(), col = new Float32Array(p.count * 3), mol = new Float32Array(p.count * 4);
@@ -21,10 +21,11 @@ function enzymeGeo(seed = 7) {
     for (const l of lumps) d += l.a * Math.exp(-(1 - v.dot(l.d)) * l.s);
     d += .022 * Math.sin(v.x * 11 + seed) * Math.sin(v.y * 13 + seed * .3) * Math.sin(v.z * 9);
     const front = sstep(-.05, .6, v.z);
-    const groove = Math.exp(-((v.x / .22) ** 2)) * front * (1 - .6 * v.y * v.y);
-    d -= .5 * groove;
+    const groove = Math.exp(-(((v.x-.16*v.y) / .31) ** 2) - (((v.y-.16) / .46) ** 2)) * front;
+    d -= .34 * groove;
+    d += .12 * Math.sin(3.2*v.y + 1.7*v.z)*v.x + .09*v.y*v.z;
     if (v.z > .999) site = d;
-    p.setXYZ(i, v.x * d, v.y * d, v.z * d);
+    p.setXYZ(i, v.x * d * 1.17, v.y * d * .79, v.z * d);
     mol[i * 4] = v.x * d; mol[i * 4 + 1] = v.y * d; mol[i * 4 + 2] = v.z * d; mol[i * 4 + 3] = 1 - .7 * Math.min(1, groove * 1.25); // for proteinMat's atom relief / cavity shading
     const spot = Math.exp(-((v.x / .13) ** 2) - (v.y / .2) ** 2) * front;
     tmp.copy(cB).lerp(cC, Math.min(1, groove * 1.15)).lerp(cS, Math.min(.9, spot * spot * 1.2));
@@ -64,13 +65,13 @@ function dotTex() {
 }
 
 // enzyme layout in the loupe view (camera at z = 6 looking at the origin); [x, y, z, size]
-const LAYOUT = [[-.55, .25, .6, .7], [1.45, -.8, -1.6, .55], [-1.55, -1.05, -2.0, .52], [1.2, 1.25, -2.6, .5], [-1.5, 1.4, -3.6, .5], [.4, -1.6, -3.4, .45], [2.8, .2, -5.0, .5], [-3.0, -.2, -5.4, .5], [.85, .45, -4.4, .52], [-.75, -.55, -6.2, .52], [.1, 1.6, -6.8, .5]]; // the last three hide behind the first in the loupe and appear during the dive
+const LAYOUT = [[-.74, .36, .03, .47], [1.45, -.8, -1.6, .55], [-1.55, -1.05, -2.0, .52], [1.2, 1.25, -2.6, .5], [-1.5, 1.4, -3.6, .5], [.4, -1.6, -3.4, .45], [2.8, .2, -5.0, .5], [-3.0, -.2, -5.4, .5], [2.8, .95, -4.4, .39], [-3.65, -.95, -6.2, .43], [.1, 1.6, -6.8, .5]]; // the last three hide behind the first in the loupe and appear during the dive
 
 export function makeMicro({ onEvent = () => {} } = {}) {
   const scene = new THREE.Scene();
   scene.environment = envTex; scene.environmentIntensity = .85;
   scene.add(bgQuad('#FCF4DE', '#EFDDAE', '#FFF9EA', .42, .58));
-  scene.fog = new THREE.Fog(C(MCOL.bg), 6.5, 15);
+  scene.fog = new THREE.Fog(C(MCOL.bg), 3.6, 12.5);
   scene.add(new THREE.HemisphereLight(0xffffff, 0xe0c890, .8));
   const key = new THREE.DirectionalLight(0xfff3e2, 2.0); key.position.set(3, 5, 6); scene.add(key);
   const rim = new THREE.DirectionalLight(0xd6e4ff, .85); rim.position.set(-5, 2, -4); scene.add(rim);
@@ -89,6 +90,10 @@ export function makeMicro({ onEvent = () => {} } = {}) {
   const subs = new THREE.InstancedMesh(subGeo, molMat(MCOL.sub), nE + 14); subs.instanceMatrix.setUsage(THREE.DynamicDrawUsage); subs.frustumCulled = false; scene.add(subs);
   const prods = new THREE.InstancedMesh(prodGeo, molMat(MCOL.prod), nE * 2 + 8); prods.instanceMatrix.setUsage(THREE.DynamicDrawUsage); prods.frustumCulled = false; scene.add(prods);
   const rT = ringTex(), dT = dotTex();
+  const foreground=[[-1.9,.74],[2.05,-.82]].map(([x,y])=>{
+    const m=new THREE.Sprite(new THREE.SpriteMaterial({map:dT,color:'#aa93a6',transparent:true,opacity:0,depthWrite:false}));
+    m.position.set(x,y,.60);m.scale.set(.92,.74,1);scene.add(m);return m;
+  });
   const E = LAYOUT.map(([x, y, z, s], i) => {
     const m = new THREE.Mesh(eGeo, eMat); m.position.set(x, y, z); m.scale.setScalar(s); scene.add(m);
     // cleft faces the viewer, turned a little sideways so the groove reads in three-quarter view
@@ -117,14 +122,29 @@ export function makeMicro({ onEvent = () => {} } = {}) {
   const hide = new THREE.Matrix4().makeScale(0, 0, 0);
   const siteLocal = new THREE.Vector3(0, 0, site), nLocal = new THREE.Vector3(0, 0, 1);
 
-  function place(mesh, i, p, rx, ry, s) { eu.set(rx, ry, 0); q.setFromEuler(eu); sv.setScalar(s); mtx.compose(p, q, sv); mesh.setMatrixAt(i, mtx); }
+  let clearCenter=0;
+  function place(mesh, i, p, rx, ry, s) {
+    if(clearCenter>.01){
+      const halfH=Math.max(.1,2.5-p.z)*Math.tan(Math.PI/9);
+      const x=.5+(p.x-.12)/(2*halfH*16/9),y=.5-(p.y-.03)/(2*halfH);
+      const clear=(1-sstep(.20,.30,Math.abs(x-.5)))*(1-sstep(.14,.22,Math.abs(y-.52)));
+      s*=1-clear*clearCenter;
+    }
+    eu.set(rx, ry, 0); q.setFromEuler(eu); sv.setScalar(s); mtx.compose(p, q, sv); mesh.setMatrixAt(i, mtx); }
 
-  function update(dt, t) {
+  // Composition of the final shot in normalized screen coordinates. Keep the question in clear plasma.
+  const opening=[[.13,.40],[.79,.18],[.15,.70],[.88,.70],[.35,.20],[.43,.83],[.70,.17],[.67,.83],[.07,.48],[.94,.48],[.54,.11]];
+  function update(dt,t,dive=0) {
+    const shift=sstep(.49,1,dive); clearCenter=shift;
+    foreground.forEach((m,i)=>{m.material.opacity=.21*shift;m.position.y=(i?-.82:.74)+.10*Math.sin(t*.31+i);});
     for (let i = 0; i < nE; i++) {
       const e = E[i], m = e.m;
       // gentle drift + wobble; induced fit squeezes the domains together while the substrate is bound
-      m.position.set(e.x + Math.sin(t * .31 + e.ph) * .06, e.y + Math.sin(t * .23 + e.ph * 2) * .07, e.z);
-      m.rotation.set(e.base.x + Math.sin(t * .27 + e.ph) * .14, e.base.y + Math.sin(t * .21 + e.ph * 1.7) * .16, e.base.z + Math.sin(t * .17 + e.ph) * .1);
+      const dist=2.5-e.z, halfH=dist*Math.tan(Math.PI/9);
+      const endX=.12+(opening[i][0]-.5)*2*halfH*16/9, endY=.03+(.5-opening[i][1])*2*halfH;
+      m.position.set(e.x+(endX-e.x)*shift+Math.sin(t*.31+e.ph)*.035,e.y+(endY-e.y)*shift+Math.sin(t*.23+e.ph*2)*.03,e.z);
+      const size=e.s+((i===0?.066:i===1?.041:.018+(i%4)*.004)*dist-e.s)*shift;
+      m.rotation.set(e.base.x + Math.sin(t * .27 + e.ph) * .14, e.base.y + shift*(i%2?1.02:-1.20) + Math.sin(t * .21 + e.ph * 1.7) * .16, e.base.z + Math.sin(t * .17 + e.ph) * .1);
       let squeeze = 0;
       const u = t - e.t0;
       if (e.st === 0 && u > e.wait) { // pick a start point in front of the cleft
@@ -150,7 +170,7 @@ export function makeMicro({ onEvent = () => {} } = {}) {
           e.flash = t; e.fp.copy(tgt); onEvent(i);
         }
       } else subs.setMatrixAt(i, hide);
-      m.scale.set(e.s * (1 - .05 * squeeze), e.s * (1 + .02 * squeeze), e.s);
+      m.scale.set(size*(1-.05*squeeze),size*(1+.02*squeeze),size);
       // products leave the cleft and fade into the plasma
       for (let j = 0; j < 2; j++) {
         const P = e.prod[j], idx = i * 2 + j;

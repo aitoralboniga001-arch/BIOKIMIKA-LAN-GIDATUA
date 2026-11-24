@@ -8,6 +8,7 @@ import { CamRig, V } from '../rig.js';
 import { icon } from '../icons.js';
 import { balanceModel } from '../sim.js';
 import { el } from '../chart.js';
+const _bf = new THREE.Vector3(); // scratch vector for the bridge focus
 
 const COLS = 11, ROWS = 8, HR = .2, NCELL = COLS * ROWS;
 const FLY = 1.3;       // flight time of one enzyme (s of beat time)
@@ -51,10 +52,12 @@ const REF = .18;
 
 export default {
   id: 'intensity', chapter: 1, beats: 4, title: 'Lesioaren intentsitatea eta entzimen jarduera', bloom: .5,
+  bridgeIn: { focus() { return this.sc[0].g.getWorldPosition(_bf); } },
+  bridge: { mode: 'flow', dir: [1, .25] },
   build(layer) {
     const S = makeScene({ glow: '#FFF1E6', gx: .5, gy: .6 }); this.S = S; this.scene = S.scene; this.camera = S.camera;
-    const A0 = [V(0, 2.1, 13.4), V(0, .45, 0), 34], A1 = [V(4.05, 2.6, 19.2), V(4.05, .2, 0), 34]; // card on the right: both slabs shift left, clear of it
-    this.shots = [A0, A0, A1, A1];
+    const A0 = [V(0, 1.85, 15.5), V(0, .12, 0), 34], A1 = [V(4.05, 2.3, 19.8), V(4.05, -.1, 0), 34]; // framed so counters clear the title and the equations end above y = 970 // card on the right: both slabs shift left, clear of it
+    this.shots = [A0, [V(.42,1.65,15.6),V(.18,.1,0),34], A1, A1];
     this.rig = new CamRig(this.camera, this.shots[0][0], this.shots[0][1], { fov: 34, drift: .04 });
     const R = rng(9);
     const m4 = new THREE.Matrix4();
@@ -79,16 +82,17 @@ export default {
       }
       movers.sort((a, b) => a.launch - b.launch); movers.forEach((mv, i) => { mv.slot = i; });
       const tube = glassCylinder({ r: .36, h: TUBE_H }); tube.position.set(cfg.x, TUBE_Y, -.2); this.scene.add(tube);
+      const cap=new THREE.Mesh(new THREE.CylinderGeometry(.39,.39,.13,32),new THREE.MeshStandardMaterial({color:'#98714c',roughness:.55})); cap.position.y=TUBE_H/2; cap.castShadow=true; tube.add(cap); s.mesh.castShadow=true;
       const fill = new THREE.Mesh(new THREE.CylinderGeometry(.31, .31, 1, 40), new THREE.MeshPhysicalMaterial({ color: COL3.coral, transparent: true, opacity: .2, roughness: .3, depthWrite: false }));
       fill.position.set(cfg.x, TUBE_Y - TUBE_H / 2, -.2); this.scene.add(fill);
       // DOM: equation under the slab, live count above the tube
       const eqEl = add(layer, `<div class="abs" style="left:0;top:0;width:420px;text-align:center;text-shadow:var(--halo)">
         <div style="font:700 26px/1.2 var(--sans);color:${INK}">${cfg.title}<span style="display:block;font-weight:400;font-size:23px;color:${MUTE}">${cfg.sub}</span></div>
         <div style="font:400 54px/1.05 var(--serif);color:${INK};margin-top:4px"><b class="nd" style="font-weight:600">0</b><span style="color:${MUTE};margin:0 14px">×</span><b style="font-weight:600;color:${PAL.coral}">${cfg.per}</b></div>
-        <div style="font:500 20px/1.2 var(--sans);color:${MUTE};letter-spacing:.4px">zelula kaltetuta × entzima zelulako</div></div>`);
+        <div style="font:500 22px/1.25 var(--sans);color:${MUTE}">zelula kaltetuta × entzima zelulako</div><div style="font:italic 400 22px/1.2 var(--serif);color:${MUTE}">eskematikoa</div></div>`);
       const numEl = add(layer, `<div class="abs" style="left:0;top:0;width:260px;text-align:center;text-shadow:var(--halo)">
         <div class="ar" style="font:400 70px/1 var(--serif);color:${PAL.coral}">0</div>
-        <div style="font:500 20px/1.2 var(--sans);color:${MUTE};margin-top:4px">entzima plasman</div></div>`);
+        <div style="font:500 22px/1.2 var(--sans);color:${MUTE};margin-top:4px">entzima plasman</div></div>`);
       return { cfg, g, s, dmg, dots, movers, tube, fill, eqEl, numEl, ndEl: eqEl.querySelector('.nd'), arEl: numEl.querySelector('.ar'), lastNd: -1, lastAr: -1,
         aTop: V(cfg.x, TUBE_Y + TUBE_H / 2 + .12, -.2), aBot: V(cfg.x, -1.7, 1.55) };
     });
@@ -116,14 +120,14 @@ export default {
     let d = ''; for (let i = 0; i <= 120; i++) { const t = i / 120; d += (i ? 'L' : 'M') + X(t).toFixed(1) + ' ' + Y(KM.A(t)).toFixed(1); }
     el('path', { d, fill: 'none', stroke: PAL.coral, 'stroke-width': 3.5, 'stroke-linecap': 'round', opacity: .85 }, svg);
     const tx = (x, y, s, txt, attrs = {}) => { const e = el('text', { x, y, 'font-size': s, fill: MUTE, 'font-family': 'var(--sans)', ...attrs }, svg); e.textContent = txt; return e; };
-    tx(X0 + 6, Y0 - 6, 20, 'Lesio bera, lagin-une desberdinak');
-    tx(X0 + XW + 10, Y0 + YH + 26, 20, 'lagin-unea', { 'text-anchor': 'end' });
+    tx(X0 + 6, Y0 - 8, 22, 'Lesio bera, lagin-une desberdinak');
+    tx(X0 + XW + 10, Y0 + YH + 28, 22, 'lagin-unea', { 'text-anchor': 'end' });
     el('rect', { x: 476, y: Y0, width: 34, height: YH, rx: 8, fill: 'none', stroke: LINE2, 'stroke-width': 1.5 }, svg);
     this.dm = {
       line: el('line', { y1: Y0, y2: Y0 + YH, stroke: alpha(INK, .5), 'stroke-width': 1.6, 'stroke-dasharray': '3 5' }, svg),
       dot: el('circle', { r: 7, fill: PAL.coral, stroke: PAPER, 'stroke-width': 2.5 }, svg),
       bar: el('rect', { x: 480, width: 26, rx: 6, fill: alpha(PAL.coral, .75) }, svg),
-      read: tx(493, Y0 + YH + 28, 20, '', { 'text-anchor': 'middle', 'font-weight': 700 }), X, Y,
+      read: tx(493, Y0 + YH + 28, 22, '', { 'text-anchor': 'middle', 'font-weight': 700 }), X, Y,
     };
     el('line', { x1: 470, x2: 516, y1: Y(REF), y2: Y(REF), stroke: LINE2, 'stroke-dasharray': '4 4', 'stroke-width': 1.5 }, svg);
     this.dmT0 = 0;
@@ -132,19 +136,21 @@ export default {
       <h4><span style="color:var(--gold)">ALT</span> eta <span style="color:var(--orange)">AST</span> gibelean</h4>
       <div style="display:flex;gap:26px;margin-top:24px">
         <div style="flex:1;text-align:center"><svg viewBox="0 0 200 120" width="220"><path d="M20 110 A80 80 0 0 1 180 110" fill="none" stroke="${LINE}" stroke-width="16" stroke-linecap="round"/><path d="M20 110 A80 80 0 0 1 166 70" fill="none" stroke="${PAL.gold}" stroke-width="16" stroke-linecap="round"/><line x1="100" y1="110" x2="158" y2="62" stroke="${INK}" stroke-width="4" stroke-linecap="round"/><circle cx="100" cy="110" r="7" fill="${INK}"/></svg>
-          <div style="font:700 25px/1.2 var(--sans);color:var(--gold)">Lesioa</div><p style="font-size:21px">zelulen kaltearen adierazlea</p></div>
+          <div style="font:700 25px/1.2 var(--sans);color:var(--gold)">Lesioa</div><p style="font-size:22px">zelulen kaltearen adierazlea</p></div>
         <div style="flex:1;text-align:center"><svg viewBox="0 0 200 120" width="220"><path d="M20 110 A80 80 0 0 1 180 110" fill="none" stroke="${LINE2}" stroke-width="16" stroke-linecap="round" stroke-dasharray="4 10"/><text x="100" y="100" text-anchor="middle" font-size="64" fill="${MUTE}" font-family="Georgia">?</text></svg>
-          <div style="font:700 25px/1.2 var(--sans);color:var(--ink2)">Funtzioa</div><p style="font-size:21px">bestelako datuak behar dira</p></div></div>
+          <div style="font:700 25px/1.2 var(--sans);color:var(--ink2)">Funtzioa</div><p style="font-size:22px">bestelako datuak behar dira</p></div></div>
       <p style="margin-top:26px;font-size:25px;color:var(--ink)">Entzima-jarduera eta organoaren funtzioa <b style="color:var(--amber)">bereizita</b> interpretatu</p></div>`);
   },
   enter(b) { const s = this.shots[b]; this.rig.arrive(s[0], s[1], s[2]); this.k.set(b >= 1 ? KEND : 0); this.b = b; },
   beat(b, dir) {
     const s = this.shots[b]; this.rig.go(s[0], s[1], 1.8, s[2]); this.b = b;
+    this.compareTime=b===1?0:-1;
     if (b >= 1) this.k.to(KEND, b === 1 && dir > 0 ? KEND : .01, ease.lin); else this.k.to(0, .6);
     if (b === 2) this.dmT0 = -1;
   },
   update(dt, t) {
     this.rig.update(t); this.S.dust.update(t);
+    if(this.compareTime>=0){this.compareTime+=dt;if(this.compareTime>2.15){this.compareTime=-1;this.rig.go(V(.48,1.66,15.2),V(.18,.06,0),2.5,34); /* slight push-in: both equations stay above y = 970 */}}
     const k = this.k.v, m4 = this.m4, cam = this.camera;
     let done = true;
     for (const s of this.sc) {

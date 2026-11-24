@@ -6,13 +6,13 @@ import { PAL } from '../theme.js';
 export const TRACE = { x: 120, y: 930, w: 1680, h: 96 }; // stage px; baseline at y + h - 8 (= 1018), mirrored in style.css #loading
 
 export function makeTrace(layer) {
-  const { x, y, w, h } = TRACE, S = 2, speed = 105, HZ = 30;
+  const { x, y, w, h } = TRACE, S = Math.min(1.25,window.devicePixelRatio || 1), speed = 105, HZ = 30;
   const el = add(layer, `<div class="abs cv-trace" style="left:${x}px;top:${y}px;width:${w}px;height:${h}px">
     <canvas width="${w * S}" height="${h * S}" style="position:absolute;inset:0;width:100%;height:100%"></canvas>
     <div class="cv-read mono"><span class="k">jarduera</span><span class="sep">·</span><b>32</b><span class="u sch">eskematikoa</span></div></div>`);
   const cv = el.querySelector('canvas'), ctx = cv.getContext('2d'), num = el.querySelector('b'), read = el.querySelector('.cv-read');
   const N = Math.ceil(w / speed * HZ) + 8, buf = new Float32Array(N);
-  let head = 0, acc = 0, imp = 0, out = 0, rate = 2.4, shown = 31, nextTick = 0, tt = 0;
+  let head = 0, acc = 0, imp = 0, out = 0, rate = 2.4, shown = 31, nextTick = 0, nextPaint = 0, tt = 0;
   const events = []; // recent event times
   const base = h - 8, amp = (h - 22) * .62;
   const headK = new Tw(1);
@@ -42,6 +42,8 @@ export function makeTrace(layer) {
         const target = Math.round(12 + rate * 8); shown += Math.sign(target - shown) * Math.min(2, Math.abs(target - shown));
         num.textContent = shown;
       }
+      if(t<nextPaint && t>nextPaint-.1) return;
+      nextPaint=t+1/HZ-.001;
       const hk = headK.v, hx = 4 + (w - 12) * hk;
       read.style.opacity = clamp((hk - .75) / .25);
       ctx.setTransform(S, 0, 0, S, 0, 0); ctx.clearRect(0, 0, w, h);

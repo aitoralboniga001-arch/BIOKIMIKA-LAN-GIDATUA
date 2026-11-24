@@ -41,6 +41,14 @@ export const halfLife = k => Math.LN2 / k;
 // Subunits of two kinds (e.g. M/B for CK dimers, H/M for LDH tetramers) associate at random.
 // With a fraction p of the first kind, the share of each form follows the binomial expansion:
 // dimers p², 2pq, q²; tetramers p⁴, 4p³q, 6p²q², 4pq³, q⁴. Returns the shares, first-kind-richest first.
+// Relative responses used in the teaching example. The threshold and both response gains are schematic.
+export function markerResponse(beat, source, time, levels) {
+  const pulse = Math.min(1, time * 2) * Math.exp(-Math.max(0, time - 1) * 0.55);
+  const responseA = beat === 1 ? (source === 0 ? 0.73 : 0.08) : 0.64;
+  levels[0] = 0.12 + pulse * responseA;
+  levels[1] = 0.12 + pulse * (beat === 1 ? 0.65 : 0.13);
+}
+
 export function binomialShares(p, size) {
   const q = 1 - p, out = [];
   const C = (n, r) => { let c = 1; for (let i = 0; i < r; i++) c = c * (n - i) / (i + 1); return c; };

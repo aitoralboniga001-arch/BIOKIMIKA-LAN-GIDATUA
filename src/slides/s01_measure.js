@@ -12,6 +12,7 @@ import { makeCell } from '../cell.js';
 import { CamRig, V } from '../rig.js';
 import { icon } from '../icons.js';
 import { makeHDL, makeCascade, makeSpectro } from './s01_measure_3d.js';
+const _bf = new THREE.Vector3(); // scratch vector for the bridge focus
 
 // ---- assay model (schematic): one "minute" of the stopwatch = MIN seconds of talk time
 const MIN = 9, SPAN = 3;                 // chart shows 3 minutes, then the assay restarts
@@ -28,6 +29,8 @@ const CW = 430, CH = 210, YMAX = 72;     // chart size (px) and product scale (m
 
 export default {
   id: 'measure', chapter: 0, beats: 4, title: 'Zer neurtzen du laborategiak?', bloom: .5,
+  bridgeIn: { focus() { return this.hdl.group.getWorldPosition(_bf); } },              // lands on the HDL particle (plasma enzymes)
+  bridge: { mode: 'dive', focus() { return this.cell.group.getWorldPosition(_bf); } },   // dives into the tissue cell ...
   build(layer) {
     const S = makeScene({ gx: .5, gy: .5 }); this.S = S; this.scene = S.scene; this.camera = S.camera;
     this.shots = [
@@ -52,7 +55,7 @@ export default {
     this.nextLeak = 1.5;
     // --- enzymes that work in plasma itself: LCAT on an HDL particle + the clotting cascade
     this.plasma = new THREE.Group(); this.plasma.position.set(3.4, 0, 0); this.scene.add(this.plasma);
-    this.hdl = makeHDL({ R: .74 }); this.hdl.group.position.set(-.25, .72, 0); this.plasma.add(this.hdl.group);
+    this.hdl = makeHDL({ R: .9 }); this.hdl.group.position.set(-.25, .72, 0); this.plasma.add(this.hdl.group);
     this.casc = makeCascade({ x0: -1.6, dx: .58, y: -1.0, mesh: V(1.78, -.86, 0), size: V(1.75, 1.3, .8) }); this.plasma.add(this.casc.group);
 
     // --- beat 3: the assay. Two cuvettes in the light path of a spectrophotometer; B has twice as much enzyme
@@ -83,14 +86,14 @@ export default {
     // --- text
     add(layer, `<div class="eyebrow"><b>1</b>Sarrera eta neurketa</div>`);
     add(layer, `<div class="h1">Zer neurtzen du <em>laborategiak</em>?</div>`);
-    add(layer, `<div class="card l" data-b="0-0" style="left:96px;top:330px;width:620px">
-      <h4 style="color:var(--mint)">Plasman bertan jarduten dute</h4>
-      <p><b style="color:var(--mint)">LCAT</b> · HDLko kolesterola esterifikatzen du; esterrak partikularen nukleora doaz</p>
-      <p style="margin-top:10px"><b style="color:var(--lav)">Koagulazio-faktoreak</b> · aitzindari inaktiboak; katea abiatzean aktibatzen dira, eta azkenean fibrina sortzen da</p></div>`);
-    add(layer, `<div class="card r" data-b="1-1" style="left:1190px;top:330px;width:640px">
-      <h4>Zelula barruan jarduten dute</h4>
-      <p style="font-size:34px;margin:6px 0 14px"><b style="color:var(--coral)">CK</b> · <b style="color:var(--blue)">LDH</b> · <b style="color:var(--gold)">ALT</b></p>
-      <p>Odolean <b style="color:var(--ink)">jarduera txikia</b>: zelula-berritzea eta oinarrizko askapena</p></div>`);
+    add(layer, `<div class="key d2" data-b="0-0" style="left:96px;top:250px;bottom:auto;max-width:640px">Plasman <em>bertan</em> jarduten dute</div>`);
+    add(layer, `<div class="fx d3" data-b="0-0" style="position:absolute;left:96px;top:330px;width:560px;font:400 24px/1.45 var(--sans);color:var(--ink2)">
+      <div><b style="color:var(--mint)">LCAT</b> · HDLko kolesterola esterifikatzen du</div>
+      <div style="margin-top:10px"><b style="color:var(--lav)">Koagulazio-faktoreak</b> · katean aktibatzen dira → fibrina</div></div>`);
+    add(layer, `<div class="kicker fx d1" data-b="1-1" style="position:absolute;left:1190px;top:318px">Zelula barruan jarduten dute</div>`);
+    add(layer, `<div class="fx d2" data-b="1-1" style="position:absolute;left:1186px;top:362px;font:600 64px/1 var(--sans);letter-spacing:-.02em"><span style="color:var(--coral)">CK</span><span style="color:#C9CED8;font-weight:300"> · </span><span style="color:var(--blue)">LDH</span><span style="color:#C9CED8;font-weight:300"> · </span><span style="color:var(--gold)">ALT</span></div>`);
+    add(layer, `<div class="key d3" data-b="1-1" style="left:1190px;top:470px;bottom:auto;max-width:640px;font-size:54px;line-height:1.1">Odolean <em>jarduera txikia</em></div>`);
+    add(layer, `<div class="fx d4" data-b="1-1" style="position:absolute;left:1190px;top:612px;width:600px;font:400 26px/1.4 var(--sans);color:var(--ink2)">zelula-berritzea eta oinarrizko askapena</div>`);
     // activity card: stopwatch + live product trace
     this.uEl = add(layer, `<div class="card r" data-b="2-2" style="left:1100px;top:228px;width:740px;padding:24px 30px 22px">
       <h4 style="color:var(--amber)">Jarduera katalitikoa</h4>
@@ -100,37 +103,39 @@ export default {
         <div style="width:150px;text-align:center">
           <svg viewBox="0 0 80 96" width="118" height="142"><rect x="33" y="2" width="14" height="7" rx="2" fill="${MUTE}"/><circle cx="40" cy="48" r="31" fill="${PAPER}" stroke="${LINE2}" stroke-width="4"/>
             <path class="m-arc" fill="${alpha(PAL.amber, .22)}" d=""/><line class="m-hand" x1="40" y1="48" x2="40" y2="22" stroke="${INK}" stroke-width="4" stroke-linecap="round"/><circle cx="40" cy="48" r="4" fill="${INK}"/>
-            <text x="40" y="94" text-anchor="middle" font-size="13" font-weight="700" fill="${MUTE}">1 min</text></svg>
-          <div style="font:600 17px/1.5 var(--sans);letter-spacing:1.5px;margin-top:4px"><span style="color:var(--teal)">● SUBSTRATUA</span><br><span style="color:var(--pink)">● PRODUKTUA</span></div>
+            <text x="40" y="95" text-anchor="middle" font-size="15" font-weight="650" fill="${MUTE}">1 min</text></svg>
+          <div style="font:600 22px/1.45 var(--sans);margin-top:4px;text-align:left;padding-left:8px"><span style="color:var(--teal)">● substratua</span><br><span style="color:var(--pink)">● produktua</span></div>
         </div>
         <div class="m-chart" style="position:relative;width:${CW + 70}px;height:${CH + 64}px"></div>
       </div>
       <div style="display:flex;gap:34px;margin-top:6px;font:600 25px/1 var(--sans);align-items:baseline">
-        <span style="color:${PAL.amber}">A · <span class="mono m-ra">–</span> <small style="font-weight:400;color:var(--ink2)">/ min</small></span>
-        <span style="color:${PAL.coral}">B · <span class="mono m-rb">–</span> <small style="font-weight:400;color:var(--ink2)">/ min</small></span>
+        <span style="color:${PAL.amber}">A · <span class="mono m-ra">–</span> <small style="font-weight:400;font-size:22px;color:var(--ink2)">/ min</small></span>
+        <span style="color:${PAL.coral}">B · <span class="mono m-rb">–</span> <small style="font-weight:400;font-size:22px;color:var(--ink2)">/ min</small></span>
         <span style="color:var(--ink2);font-weight:500">malda = <b style="color:var(--amber)">jarduera</b> → U/L</span></div>
-      <p style="margin-top:14px;font-size:21px;color:var(--mute)">Jarduera eta kontzentrazioa lotuta daude, baina balioa metodoaren araberakoa da</p></div>`);
+      <p style="margin-top:14px;font-size:22px;color:var(--mute)">Jarduera eta kontzentrazioa lotuta daude, baina balioa metodoaren araberakoa da</p></div>`);
     this.cntA = this.uEl.querySelector('.m-ra'); this.cntB = this.uEl.querySelector('.m-rb');
     this.arc = this.uEl.querySelector('.m-arc'); this.hand = this.uEl.querySelector('.m-hand');
     // chart
     const svg = el('svg', { width: CW + 70, height: CH + 64, viewBox: `-46 -14 ${CW + 70} ${CH + 64}`, style: 'overflow:visible' }, this.uEl.querySelector('.m-chart'));
     for (let m = 1; m <= SPAN; m++) el('line', { x1: m / SPAN * CW, x2: m / SPAN * CW, y1: 0, y2: CH, stroke: LINE, 'stroke-width': 1.5 }, svg);
     el('path', { d: `M0 -6 V${CH} H${CW + 8}`, fill: 'none', stroke: AXIS, 'stroke-width': 2 }, svg);
-    for (let m = 0; m <= SPAN; m++) { const tx = el('text', { x: m / SPAN * CW, y: CH + 24, 'text-anchor': 'middle', 'font-size': 19, fill: MUTE }, svg); tx.textContent = m; }
-    const xl = el('text', { x: CW, y: CH + 46, 'text-anchor': 'end', 'font-size': 20, fill: INK2 }, svg); xl.textContent = 'denbora (min)';
-    const yl = el('text', { x: 10, y: 2, 'font-size': 19, 'font-weight': 600, fill: INK }, svg); yl.textContent = 'Produktua';
-    const yl2 = el('text', { x: 108, y: 2, 'font-size': 19, fill: MUTE }, svg); yl2.textContent = '(absorbantzia)';
-    const sc = el('text', { x: -14, y: CH, 'font-size': 18, fill: MUTE, transform: `rotate(-90 -14 ${CH})` }, svg); sc.textContent = 'eskematikoa';
+    for (let m = 0; m <= SPAN; m++) { const tx = el('text', { x: m / SPAN * CW, y: CH + 24, 'text-anchor': 'middle', 'font-size': 22, fill: MUTE }, svg); tx.textContent = m; }
+    const xl = el('text', { x: CW, y: CH + 50, 'text-anchor': 'end', 'font-size': 22, fill: INK2 }, svg); xl.textContent = 'denbora (min)';
+    const yl = el('text', { x: 10, y: 2, 'font-size': 22, 'font-weight': 600, fill: INK }, svg); yl.textContent = 'Produktua';
+    const yl2 = el('text', { x: 124, y: 2, 'font-size': 22, fill: MUTE }, svg); yl2.textContent = '(absorbantzia)';
+    const sc = el('text', { x: -16, y: CH, 'font-size': 22, fill: MUTE, 'font-style': 'italic', transform: `rotate(-90 -14 ${CH})` }, svg); sc.textContent = 'eskematikoa';
     LANES.forEach(L => {
       L.fit = el('line', { stroke: L.txt, 'stroke-width': 2, 'stroke-dasharray': '6 6', opacity: 0 }, svg);
       L.path = el('path', { fill: 'none', stroke: L.txt, 'stroke-width': 3.5, 'stroke-linejoin': 'round' }, svg);
       L.dot = el('circle', { r: 6, fill: L.txt, stroke: PAPER, 'stroke-width': 2.5 }, svg);
-      L.tag = el('text', { 'font-size': 19, 'font-weight': 700, fill: L.txt }, svg); L.tag.textContent = L.name;
+      L.tag = el('text', { 'font-size': 22, 'font-weight': 700, fill: L.txt }, svg); L.tag.textContent = L.name;
     });
     const q = [['tissue', 'Zein ehunetatik?', 'etor daiteke entzima', COL.coral], ['gauge', 'Zenbatekoa?', 'da aldaketa', COL.amber], ['clock', 'Noiz?', 'hartu da lagina', COL.blue], ['patient', 'Zer datu kliniko?', 'ditu pazienteak', COL.mint]];
-    q.forEach(([ic, a, b2, c], i) => add(layer, `<div class="card pop d${i + 1}" data-b="3" style="left:${96 + i * 440}px;top:700px;width:410px;padding:28px 28px 26px;display:flex;gap:22px;align-items:center">
-      ${icon(ic, 78, c)}<div><h4 style="color:${c};margin:0 0 4px;font-size:33px">${a}</h4><p style="font-size:23px">${b2}</p></div></div>`));
-    add(layer, `<div class="note" data-b="3" style="left:96px;top:634px;font-size:27px">Emaitza bat interpretatzeko, <b style="color:var(--ink);font-style:normal">lau galdera</b>:</div>`);
+    q.forEach(([ic, a, b2, c], i) => add(layer, `<div class="fx d${i + 2}" data-b="3" style="position:absolute;left:${96 + i * 440}px;top:672px;width:410px;padding-top:22px;border-top:2px solid ${c}">
+      <div style="display:flex;align-items:center;gap:14px;margin-bottom:14px">${icon(ic, 46, c)}<span style="font:500 22px/1 var(--mono);color:${c}">0${i + 1}</span></div>
+      <div style="font:400 46px/1.08 var(--serif);color:var(--ink);letter-spacing:-.01em">${a}</div>
+      <div style="font:400 24px/1.35 var(--sans);color:var(--ink2);margin-top:8px">${b2}</div></div>`));
+    add(layer, `<div class="kicker fx d1" data-b="3" style="position:absolute;left:96px;top:620px">Emaitza bat interpretatzeko · lau galdera</div>`);
     this.detLab = LANES.map((L, i) => new Label(layer, `detektagailua<small><span class="m-abs mono">abs. 0.00</span></small>`, { color: INK2, anchor: V(1.38, L.y + .26, 0), obj: this.big, b: '2-2' }));
     this.absEl = this.detLab.map(l => l.el.querySelector('.m-abs'));
     this.labs = [
@@ -150,8 +155,9 @@ export default {
     ];
     this.tmp = new THREE.Vector3(); this.m4 = new THREE.Matrix4(); this.q = new THREE.Quaternion(); this.sv = new THREE.Vector3(); this.ax = new THREE.Vector3(.3, 1, .2).normalize();
   },
-  enter(b) { const s = this.shots[b]; this.rig.arrive(s[0], s[1], s[2]); this.bigK.set(b === 2 ? 1 : 0); this.cellK.set(b === 0 ? 0 : 1); this.plasmaK.set(b === 1 ? 0 : 1); if (b === 2) this.startAssay(); else this.running = false; },
+  enter(b) { this.currentBeat=b;this.travel=0; const s = this.shots[b]; this.rig.arrive(s[0], s[1], s[2]); this.bigK.set(b === 2 ? 1 : 0); this.cellK.set(b === 0 ? 0 : 1); this.plasmaK.set(b === 1 ? 0 : 1); if (b === 2) this.startAssay(); else this.running = false; },
   beat(b, dir) {
+    this.currentBeat=b;this.travel=0;
     if (dir) { const s = this.shots[b]; this.rig.go(s[0], s[1], 2.0, s[2]); }
     this.bigK.to(b === 2 ? 1 : 0, 1.2, ease.out);
     this.frameK.to(b === 3 ? 1 : 0, 1.2);
@@ -180,13 +186,17 @@ export default {
   inCuvette(L, out) { const r0 = this.spec.rows[0], r = r0.inner / 2; return out.set((Math.random() * 2 - 1) * r, L.y + r0.liqY + (Math.random() - .5) * r0.liqH * .8, (Math.random() * 2 - 1) * r); },
   update(dt, t) {
     this.lastT = t;
+    if(this.travel<2.4&&(this.travel+=dt)>=2.4&&(this.currentBeat===0||this.currentBeat===2)){
+      const [p,l,f]=this.shots[this.currentBeat],offset=this.currentBeat===0?V(.26,-.26,0):V(0,-.22,0);
+      this.rig.go(p.clone().add(offset),l.clone().add(offset),2.4,f);
+    }
     this.rig.update(t); this.S.dust.update(t);
     const fk = this.frameK.v; this.frames[0].material.opacity = fk * .3; this.frames[1].material.opacity = fk * .45;
     const ck = this.cellK.v; this.cell.group.visible = ck > .01; this.cell.group.scale.setScalar(Math.max(.001, ck)); this.cell.group.position.x = -3.5 - (1 - ck) * 1.2;
     // tissue enzymes jiggle; every so often one slips out (basal release)
     if (this.cell.group.visible) {
       this.nextLeak -= dt;
-      if (this.nextLeak < 0) { this.nextLeak = 1.4 + Math.random() * 1.2; const a = this.ag[Math.floor(Math.random() * this.inN)]; if (a.out < 0) a.out = 0; }
+      if (this.nextLeak < 0) { this.nextLeak = 1.35 + Math.random() * .3; const a = this.ag[Math.floor(Math.random() * this.inN)]; if (a.out < 0) a.out = 0; }
       for (let i = 0; i < this.inN; i++) {
         const a = this.ag[i];
         if (a.out >= 0) {

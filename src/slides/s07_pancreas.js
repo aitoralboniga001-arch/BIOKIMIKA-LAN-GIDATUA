@@ -1,6 +1,7 @@
 // 7 · Acute pancreatitis: amylase and lipase are two balance models (sim.js) fed by the same injured pancreas.
 // Amylase is removed from the plasma faster; lipase stays in the blood longer. The pancreas releases particle streams into
 // two sample tubes, the tubes lose them again at each enzyme's rate, and a late sample shows amylase back in range while lipase is still high.
+import { organMat } from '../optics.js';
 import { THREE, Tw, add, ease, clamp, rng, Label } from '../core.js';
 import { makeScene, C, COL3, contactShadow, halo } from '../lib3d.js';
 import { PAL, INK, MUTE, PAPER, alpha } from '../theme.js';
@@ -9,6 +10,7 @@ import { Chart, el } from '../chart.js';
 import { balanceModel } from '../sim.js';
 import { tubeMeter, Flow } from './s06_kinetics.js';
 import { pancreasParts } from './s07_pancreas_organ.js';
+const _bf = new THREE.Vector3(); // scratch vector for the bridge focus
 
 // same release pulse (one injury), different removal: qualitative only
 const PULSE = { onset: .03, tRise: .07, shape: 2.2 };
@@ -19,10 +21,12 @@ const RA = rmax(AM), RL = rmax(LM);
 const backIn = m => { for (let i = Math.round(m.tPeak * 400); i <= 400; i++) if (m.A(i / 400) < REF) return i / 400; return 1; };
 const W0 = backIn(AM), W1 = backIn(LM);          // window where amylase is back in range and lipase is still high
 const TA = -4.02, TL = -2.32, TY = -1.925, TS = .44; // sample tubes: x, floor, scale (left column, below the organ)
-const PG = V(-3.06, .95, 0), PS = 1.0;            // pancreas group position / scale
+const PG = V(-3.02, .93, 0), PS = 1.24;            // pancreas group position / scale
 
 export default {
   id: 'pancreas', chapter: 2, beats: 3, title: 'Pankreatitis akutua: amilasa eta lipasa', bloom: .5,
+  bridgeIn: { focus() { return this.pg.getWorldPosition(_bf); } },                     // ... into the pancreas
+  bridge: { mode: 'cells', focus() { return this.pg.getWorldPosition(_bf); } },
   build(layer) {
     const S = makeScene({ glow: '#F2FAF7', gx: .2, gy: .5 }); this.S = S; this.scene = S.scene; this.camera = S.camera;
     this.rig = new CamRig(this.camera, V(0, 0, 10), V(0, 0, 0), { fov: 34, drift: .03 });
@@ -33,11 +37,18 @@ export default {
     // It reddens and swells a little while the lesion releases its enzymes.
     const pp = pancreasParts();
     const g = new THREE.Group(); g.position.copy(PG); g.scale.setScalar(PS); this.scene.add(g); this.pg = g;
-    this.pMat = new THREE.MeshPhysicalMaterial({ color: C('#EFC59A'), roughness: .5, clearcoat: .4, clearcoatRoughness: .35, sheen: .5, sheenRoughness: .5, sheenColor: C('#fff0dc'), emissive: C(COL3.coral), emissiveIntensity: 0, envMapIntensity: .75 });
-    g.add(new THREE.Mesh(pp.geo, this.pMat));
+    this.pMat = organMat({ color: C('#EFC59A'), roughness: .5, clearcoat: .4, clearcoatRoughness: .35, sheen: .5, sheenRoughness: .5, sheenColor: C('#fff0dc'), emissive: C(COL3.coral), emissiveIntensity: 0, envMapIntensity: .75 });
+    const tissue=new THREE.Mesh(pp.geo,this.pMat); tissue.castShadow=true; g.add(tissue);
+    this.inflammation={value:0};
+    const shade=this.pMat.onBeforeCompile;
+    this.pMat.onBeforeCompile=s=>{
+      shade(s); s.uniforms.uInflammation=this.inflammation;
+      s.fragmentShader='uniform float uInflammation;\n'+s.fragmentShader.replace('#include <color_fragment>',`#include <color_fragment>
+        float front=1.-smoothstep(-1.4+3.6*uInflammation,-1.+3.6*uInflammation,tissueP.x);
+        diffuseColor.rgb=mix(diffuseColor.rgb,vec3(.68,.12,.075),front*uInflammation*.65);`);
+    };
     g.add(new THREE.Mesh(pp.duct, new THREE.MeshPhysicalMaterial({ color: C('#CDB850'), roughness: .3, clearcoat: .8, envMapIntensity: .8 })));
     g.add(new THREE.Mesh(pp.duo, new THREE.MeshPhysicalMaterial({ color: C('#E6B0AE'), roughness: .45, clearcoat: .5, sheen: .4, sheenColor: C('#ffd8d0'), envMapIntensity: .7 })));
-    this.pBase = C('#EFC59A'); this.pHot = C('#D8473A');
     this.pHalo = halo(COL3.coral, 3.2, 0); this.pHalo.position.set(PG.x - .1, PG.y, -.4); this.pHalo.scale.set(3.4, 1.8, 1); this.scene.add(this.pHalo);
     const psh = contactShadow({ size: 1, opacity: .1 }); psh.scale.set(2.6, .5, 1); psh.position.set(PG.x, PG.y - .62, -.3); this.scene.add(psh);
     // release points on the front surface (world space)
@@ -57,8 +68,8 @@ export default {
     this.onA = new Tw(0); this.onL = new Tw(0);
 
     add(layer, `<div class="eyebrow"><b>3</b>Agerpena eta iraupena</div>`);
-    add(layer, `<div class="h1">Pankreatitis akutua: <em>amilasa</em> eta <em>lipasa</em></div>`);
-    this.labs = [new Label(layer, 'Pankrea', { color: PAL.amber, anchor: V(PG.x + .9 * PS, PG.y + .5 * PS, .1), side: 'r' }),
+    add(layer, `<div class="h1">Pankreatitis akutua: <em style="color:var(--amber)">amilasa</em> eta <em style="color:var(--teal)">lipasa</em></div>`);
+    this.labs = [new Label(layer, 'Pankrea', { color: PAL.amber, anchor: V(PG.x + .17 * PS, PG.y + .23 * PS, .1), side: 'up' }),
       new Label(layer, 'Duodenoa', { color: MUTE, anchor: V(PG.x - .45 * PS, PG.y - .56 * PS, .1), side: 'r' })];
     for (const l of this.labs) l.el.classList.add('bg');
     this.ch = new Chart(layer, { x: 760, y: 270, w: 1040, h: 470, ref: REF, xLabel: 'Sintomak hasi ondorengo denbora', yLabel: 'Jarduera erlatiboa' });
@@ -76,21 +87,28 @@ export default {
       <svg width="58" height="58" viewBox="-30 -30 60 60"><circle r="26" fill="${PAPER}" stroke="${alpha(INK, .5)}" stroke-width="2.5"/>
       ${[...Array(12).keys()].map(i => `<line x1="0" y1="-22" x2="0" y2="-18" stroke="${alpha(INK, .4)}" stroke-width="2" transform="rotate(${i * 30})"/>`).join('')}
       <line class="hand" x1="0" y1="3" x2="0" y2="-19" stroke="${PAL.teal}" stroke-width="3.5" stroke-linecap="round"/><circle r="3.5" fill="${INK}"/></svg>
-      <div style="font:500 20px/1.25 var(--sans);color:${MUTE};text-shadow:var(--halo)">sintomak hasi<br>ondorengo denbora</div></div>`);
+      <div style="font:500 22px/1.25 var(--sans);color:${MUTE};text-shadow:var(--halo)">sintomak hasi<br>ondorengo denbora</div></div>`);
     this.hand = this.clock.querySelector('.hand');
-    const col = (x, name, c) => add(layer, `<div class="abs" style="left:${x - 130}px;top:892px;width:260px;text-align:center;text-shadow:var(--halo)">
-      <div style="font:700 26px/1.1 var(--sans);color:${c}">${name}</div><div class="st" style="font:700 23px/1.3 var(--sans);margin-top:4px"></div></div>`).querySelector('.st');
-    this.sa = col(960 + TA * 176.6, 'Amilasa', PAL.amber); this.sl = col(960 + TL * 176.6, 'Lipasa', PAL.teal);
+    // both tubes are named in the gap between them (amylase high, on its right; lipase low, on its left), anchored in 3D
+    // so the names follow the camera, never sit on the glass and never reach the chart axis
+    const tubeLab = (x, y, name, c, side) => { const l = new Label(layer, `${name}<small class="st" style="font-weight:600"></small>`, { color: c, anchor: V(x, y, .15), side }); this.labs.push(l); return l.el.querySelector('.st'); };
+    this.sa = tubeLab(TA + .45, TY + 1.3, 'Amilasa', PAL.amber, 'r'); this.sl = tubeLab(TL - .45, TY + .5, 'Lipasa', PAL.teal, 'l');
     this.lastS = ['', ''];
     add(layer, `<div class="key" data-b="-0" style="left:760px;top:850px;bottom:auto;font-size:36px;max-width:1080px">Amilasa: igoera <em>azkarra</em>, jaitsiera <em>azkarra</em></div>`);
     add(layer, `<div class="key" data-b="1-1" style="left:760px;top:850px;bottom:auto;font-size:36px;max-width:1080px">Lipasaren igoerak amilasarena baino <em>luzaroago</em> iraun dezake</div>`);
     add(layer, `<div class="key" data-b="2" style="left:760px;top:850px;bottom:auto;font-size:36px;max-width:1080px">Lagin berantiarra: amilasa <span style="color:var(--amber)">ohiko tartean</span>, lipasa <span style="color:var(--teal)">oraindik altu</span></div>`);
-    add(layer, `<div class="note" style="left:760px;top:962px;font-size:20px">Eskema kualitatiboa, Pérez Ruiz et al. [4] oinarritua · lipasa odolean luzaroago irauten du</div>`);
+    add(layer, `<div class="note" style="left:760px;top:918px;font-size:22px">Eskema kualitatiboa, Pérez Ruiz et al. [4] oinarritua · lipasa odolean luzaroago irauten du</div>`);
     this.b = 0;
   },
-  enter(b) { this.rig.arrive(V(0, 0, 10), V(0, 0, 0), 34); this.flow.clear(); this.apply(b, true, 1); },
-  beat(b, dir) { this.apply(b, false, dir); },
+  enter(b) { if(b===0)this.rig.jump(V(-2.05,.6,7.45),V(-1.78,.50,0),34); else this.rig.arrive(V(0,0,10),V(0,0,0),34); this.flow.clear(); this.apply(b, true, 1); },
+  beat(b, dir) {
+    // The director reapplies the current beat after entry. Keep the ongoing amylase trace.
+    if (dir === 0 && b === this.b) return;
+    this.apply(b, false, dir);
+  },
   apply(b, inst, dir) {
+    const y=b===2 ? -.29 : .11, x=b===2 ? -.38 : -.24;
+    this.rig.go(V(x,y,9.65),V(x,y,0),2.2,34);
     const Ct = this.ch.curT, A = this.a.reveal, L = this.l.reveal; this.b = b;
     this.onA.to(1, .5); this.onL.to(b >= 1 ? 1 : 0, inst ? .01 : .5);
     if (b === 0) {
@@ -119,9 +137,9 @@ export default {
     this.flow.emit(this.sLin, 20 * LM.rel(tc) / RL * ol, dt); this.flow.emit(this.sLout, 20 * LM.elim(tc) / RL * ol, dt);
     this.flow.update(dt);
     const inf = clamp((AM.rel(tc) - AM.rel(0)) / (RA - AM.rel(0)));    // the release pulse is the same for both: show it as inflammation
-    this.pMat.color.copy(this.pBase).lerp(this.pHot, inf * .62);
+    this.inflammation.value=inf;
     this.pMat.emissiveIntensity = .03 + .22 * inf * (1 + .25 * Math.sin(t * 5));
-    this.pg.scale.setScalar(PS * (1 + .045 * inf));
+    this.pg.scale.setScalar(PS * (1 + .02 * inf));
     this.pHalo.material.opacity = .35 * inf;
     for (const l of this.labs) l.update(this.camera);
     this.ta.update(t, dt, clamp(va / .92)); this.tl.update(t, dt, clamp(vl / .92));

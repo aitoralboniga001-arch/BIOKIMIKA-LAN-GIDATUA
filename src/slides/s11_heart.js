@@ -64,14 +64,12 @@ function beatMat(params, U, { isch = false, flow = null } = {}) {
     if (flow) head += 'uniform float uFlow;\n';
     s.fragmentShader = head + s.fragmentShader;
     if (isch) s.fragmentShader = s.fragmentShader.replace('#include <color_fragment>', `#include <color_fragment>
-      float wob = .09 * sin(vObj.x * 9. + vObj.y * 7.) * sin(vObj.z * 8. - vObj.y * 5.) + .04 * sin(vObj.x * 23. - vObj.z * 19.);
-      float R = uIR * (1. + wob);
-      float core = (1. - smoothstep(R * .72, R, vTerr)) * uIk;
-      float border = smoothstep(R * .68, R, vTerr) * (1. - smoothstep(R, R * 1.28, vTerr)) * uIk;
-      float mott = .5 + .5 * sin(vObj.x * 31. + 2. * sin(vObj.y * 27.)) * sin(vObj.z * 29. + vObj.y * 13. + 1.5 * sin(vObj.x * 17.));
-      vec3 pale = vec3(.68, .6, .6) * (.86 + .2 * mott);
-      diffuseColor.rgb = mix(diffuseColor.rgb, pale, core * .86);
-      diffuseColor.rgb = mix(diffuseColor.rgb, vec3(.34, .05, .1), border * .6);`);
+      diffuseColor.rgb*=1.+.055*sin(vObj.x*7.+sin(vObj.z*9.))*sin(vObj.y*8.);
+      float broad = sin(vObj.x*3.1 + vObj.z*2.3)*sin(vObj.y*4.2-vObj.z*.8);
+      float R = max(.002,uIR * (1. + .035*broad));
+      float core = (1.-smoothstep(.52*R,1.20*R,vTerr))*uIk;
+      vec3 dusk = mix(vec3(.32,.145,.17),vec3(.49,.31,.31),.51+.25*broad);
+      diffuseColor.rgb = mix(diffuseColor.rgb,dusk,core*.9);`);
     if (flow) s.fragmentShader = s.fragmentShader.replace('#include <emissivemap_fragment>', `#include <emissivemap_fragment>
       float st = pow(.5 + .5 * sin((vL * 2.4 - uT * 1.3) * 6.2832), 5.) * uFlow;
       totalEmissiveRadiance += vec3(1., .72, .55) * st * .32;`);
@@ -124,8 +122,8 @@ export function buildHeart() {
   for (let i = 0; i < p.count; i++) { v.fromBufferAttribute(p, i).normalize(); ventPoint(v, v); p.setXYZ(i, v.x, v.y, v.z); aT[i] = terr(v); }
   geo.computeVertexNormals(); fixSphereSeams(geo, 144, 108);
   geo.setAttribute('aTerr', new THREE.BufferAttribute(aT, 1)); geo.setAttribute('aL', new THREE.BufferAttribute(new Float32Array(p.count), 1));
-  const myo = { color: C('#7E1E2B'), roughness: .5, clearcoat: .6, clearcoatRoughness: .3, sheen: .15, sheenRoughness: .5, sheenColor: C('#FFB0A0'), envMapIntensity: .7 };
-  const vent = new THREE.Mesh(geo, beatMat(myo, U, { isch: true })); g.add(vent);
+  const myo = { color: C('#863d45'), roughness: .5, clearcoat: .6, clearcoatRoughness: .3, sheen: .15, sheenRoughness: .5, sheenColor: C('#FFB0A0'), envMapIntensity: .7 };
+  const vent = new THREE.Mesh(geo, beatMat(myo, U, { isch: true })); vent.castShadow=true; g.add(vent);
 
   // ---------------------------------------------------------------- epicardial fat + coronary arteries
   const fatMat = beatMat({ color: C('#DDB673'), roughness: .6, clearcoat: .5, clearcoatRoughness: .4, sheen: .3, sheenColor: C('#FFF0C0'), envMapIntensity: .7 }, U);
@@ -142,6 +140,12 @@ export function buildHeart() {
   const B = (x, y, z) => toLocal(V(ARb.x + x, ARb.y + y, ARb.z + z));
   // left main: from the left aortic sinus, behind the pulmonary trunk, to the LAD / circumflex split
   const lm = [B(.12, .05, .2), B(.3, .02, .32), lad[0].clone().lerp(cx[0], .5).addScaledVector(ventN(lad[0]), .03)];
+  // Epicardial fat follows the proximal coronary grooves.
+  const fat=new THREE.InstancedMesh(new THREE.SphereGeometry(1,10,7),new THREE.MeshStandardMaterial({color:'#d9ac78',roughness:.71}),20);
+  const fatPose=new THREE.Object3D();
+  for(let i=0;i<20;i++){const base=i%2?cx:lad;const p=base[Math.min(base.length-1,Math.floor(i*.63))];
+    fatPose.position.copy(p);fatPose.position.x+=i%2?.065:-.066;fatPose.scale.set(.075,.047,.032);fatPose.updateMatrix();fat.setMatrixAt(i,fatPose.matrix);}
+  g.add(fat);
   const lmL = tube(lm, .05, .048).userData.len;
   addT(lm, .05, .048, artMat, { seg: 20 });
   const ladProx = addT(lad.slice(0, clotI + 1), .05, .046, artMat, { seg: 40, L0: lmL });
@@ -156,7 +160,7 @@ export function buildHeart() {
   addT([rcaS[Math.round(.48 * 36)], ...am.slice(1)], .034, .022, artMat, { seg: 46, L0: 1.2 });
 
   // ---------------------------------------------------------------- great vessels and atria (body coordinates)
-  const vesselMat = (col, sheen) => new THREE.MeshPhysicalMaterial({ color: C(col), roughness: .42, clearcoat: .6, clearcoatRoughness: .3, sheen: .3, sheenColor: C(sheen), envMapIntensity: .7, side: THREE.DoubleSide });
+  const vesselMat = (col, sheen) => new THREE.MeshPhysicalMaterial({ color: C(col), roughness: .28, clearcoat: .75, clearcoatRoughness: .19, sheen: .3, sheenColor: C(sheen), envMapIntensity: .7, side: THREE.DoubleSide });
   const aoMat = vesselMat('#C43C48', '#FFB8B0'), vMat = vesselMat('#4F69BE', '#C0CCFF');
   const BT = (pts, r0, r1, mat, seg = 64) => { const m = new THREE.Mesh(tube(pts.map(q => B(q[0], q[1], q[2])), r0, r1, { seg, rad: 22 }), mat); g.add(m); return m; };
   // aorta: ascending, arch (up, back and to the patient's left), descending behind the heart

@@ -1,20 +1,22 @@
 // 0 · Title — a centrifuged blood sample on a light lab bench; a loupe magnifies its plasma, where enzymes turn substrate into
 // product, and every turnover is written onto a live activity trace (measurement -> diagnosis). Beat 2 dives into the loupe.
-import { THREE, Tw, add, ease, clamp, clock, renderer, quality, U, screenOf } from '../core.js';
+import { THREE, Tw, add, ease, clamp, clock, renderer, U, screenOf } from '../core.js';
 import { makeScene, bloodTube, C, halo, contactShadow } from '../lib3d.js';
-import { TEXT_HALO, SCRIM, PAL } from '../theme.js';
+import { TEXT_HALO, PAL } from '../theme.js';
 import { makeMicro, MCOL } from './s00_micro.js';
-import { makeTrace } from './s00_trace.js';
+import { el } from '../chart.js';
+import { makeTrace, TRACE } from './s00_trace.js';
+const _bf = new THREE.Vector3(); // scratch vector for the bridge focus
 
 const V = (x, y, z) => new THREE.Vector3(x, y, z);
 const LOUPE_R = 1.3, DIVE_D = 2.15; // loupe radius (world) and how many screen heights it fills when the view switches to the micro scene
 
 const CSS = `
 [data-slide="title"] .cvT { position:absolute; left:120px; top:286px; width:1040px; }
-[data-slide="title"] .cvT .eb { display:flex; align-items:center; gap:18px; font:600 19px/1 var(--sans); letter-spacing:6px; color:var(--mute); text-transform:uppercase; }
+[data-slide="title"] .cvT .eb { display:flex; align-items:center; gap:18px; font:600 22px/1 var(--sans); letter-spacing:.24em; color:var(--mute); text-transform:uppercase; }
 [data-slide="title"] .cvT .eb i { display:block; width:46px; height:2px; background:var(--amber); }
 [data-slide="title"] .cvT .eb b { color:var(--amber); font-weight:600; }
-[data-slide="title"] .cvT h1 { margin:40px 0 0; font:400 108px/1.02 var(--serif); letter-spacing:-2px; color:var(--ink); }
+[data-slide="title"] .cvT h1 { margin:40px 0 0; font:400 92px/1.04 var(--serif); letter-spacing:-1.6px; color:var(--ink); }
 [data-slide="title"] .cvT h1 em { font-style:italic; color:var(--amber); letter-spacing:-1px; }
 [data-slide="title"] .cvT .ln { display:block; overflow:hidden; padding:0 0 .12em; margin-bottom:-.12em; }
 [data-slide="title"] .cvT .ln > span { display:inline-block; transform:translateY(108%); transition:transform 1.15s cubic-bezier(.2,.85,.15,1); }
@@ -31,16 +33,16 @@ const CSS = `
 [data-slide="title"] .cvT.on .names { opacity:1; transform:none; transition-delay:1.2s; }
 [data-slide="title"] .cvT:not(.on) * { transition-delay:0s !important; }
 [data-slide="title"] .cv-tag { position:absolute; left:0; top:0; will-change:transform; white-space:nowrap; }
-[data-slide="title"] .cv-plasma { font:600 15px/1 'Cascadia Mono', Consolas, monospace; letter-spacing:3px; text-transform:uppercase; color:var(--ink2); text-shadow:var(--halo); }
+[data-slide="title"] .cv-plasma { font:500 22px/1 var(--mono); letter-spacing:.16em; text-transform:uppercase; color:var(--ink2); text-shadow:var(--halo); }
 [data-slide="title"] .cv-plasma::after { content:''; position:absolute; left:calc(100% + 12px); top:50%; width:40px; height:1px; background:rgba(20,32,51,.35); }
-[data-slide="title"] .cv-leg { font:500 19px/1 var(--sans); color:var(--ink2); display:flex; gap:20px; align-items:center; text-shadow:var(--halo); }
+[data-slide="title"] .cv-leg { font:500 22px/1 var(--sans); color:var(--ink2); display:flex; gap:20px; align-items:center; text-shadow:var(--halo); }
 [data-slide="title"] .cv-leg i { display:inline-block; width:12px; height:12px; border-radius:50%; margin-right:8px; vertical-align:-1px; box-shadow:0 0 0 2px rgba(255,255,255,.9); }
 [data-slide="title"] .cv-leg .ar { color:var(--mute); margin:0 -6px; }
-[data-slide="title"] .cv-read { position:absolute; right:0; top:-26px; display:flex; align-items:baseline; gap:9px; font-size:14px; letter-spacing:2.5px; text-transform:uppercase; color:var(--mute); }
-[data-slide="title"] .cv-read b { font:600 21px/1 'Cascadia Mono', Consolas, monospace; letter-spacing:0; color:var(--ink); min-width:26px; text-align:right; }
+[data-slide="title"] .cv-read { position:absolute; right:0; top:-34px; display:flex; align-items:baseline; gap:10px; font:600 22px/1 var(--sans); letter-spacing:.14em; text-transform:uppercase; color:var(--mute); }
+[data-slide="title"] .cv-read b { font:500 24px/1 var(--mono); letter-spacing:0; color:var(--ink); min-width:26px; text-align:right; }
 [data-slide="title"] .cv-read .sep { color:var(--amber); }
 [data-slide="title"] .cv-read .u { letter-spacing:1px; }
-[data-slide="title"] .cv-read .sch { margin-left:4px; font:italic 400 18px/1 var(--serif); letter-spacing:.3px; text-transform:none; color:var(--mute); }
+[data-slide="title"] .cv-read .sch { margin-left:4px; font:italic 400 22px/1 var(--serif); letter-spacing:.3px; text-transform:none; color:var(--mute); }
 `;
 
 // the loupe's glass: the micro view with a gentle magnifier distortion, an inner rim shadow and a glint (all fade out for the dive)
@@ -81,6 +83,8 @@ function rimMat() {
 
 export default {
   id: 'title', chapter: -1, beats: 2, title: 'Izenburua', bloom: .6,
+  // bridge to slide 2: keep diving into the plasma the loupe opened (the enzymes there become the plasma enzymes of slide 2)
+  bridge: { mode: 'dive', focus() { return this.dive.v > .5 ? this.camera.getWorldDirection(_bf).multiplyScalar(2.6).add(this.camera.position) : this.loupe.getWorldPosition(_bf); } },
   build(layer) {
     const S = makeScene({ fov: 30, glow: '#FFF3E0', gx: .7, gy: .52, dust: 110 });
     this.main = S.scene; this.mainCam = S.camera; this.S = S;
@@ -103,9 +107,9 @@ export default {
     bench.rotation.x = -Math.PI / 2; bench.position.set(-.5, -.002, 1); bench.renderOrder = -2; pivot.add(bench);
     
     // ---- the loupe: the micro scene is rendered into a small target and shown on a glass disc
-    this.micro = makeMicro({ onEvent: (i) => { if (i < 8 && this.trace) this.trace.pulse(); } }); // only turnovers visible in the loupe drive the trace
+    this.micro = makeMicro({ onEvent: (i) => { if (i<8 && this.signals && this.dive.v<.01) { const pulse=this.signals.find(p=>p.start===null); if(pulse)pulse.start=clock.t; } } }); // only turnovers visible in the loupe drive the trace
     const rtOpt = { type: THREE.HalfFloatType, samples: 4, depthBuffer: true };
-    this.rtLo = new THREE.WebGLRenderTarget(512, 512, rtOpt); this.rtHi = new THREE.WebGLRenderTarget(1024, 1024, rtOpt);
+    this.rtLo = new THREE.WebGLRenderTarget(576,576,{...rtOpt,samples:0});
     const loupe = new THREE.Group(); scene.add(loupe); this.loupe = loupe;
     this.Lc = V(4.72, .62, .9);
     this.disc = new THREE.Mesh(new THREE.CircleGeometry(LOUPE_R, 128), discMat(this.rtLo.texture)); this.disc.renderOrder = 5; loupe.add(this.disc);
@@ -125,8 +129,8 @@ export default {
     this.P0 = V(.15, .5, 14); this.L0 = V(.15, .02, 0);
     this.dive = new Tw(0); this.intro = { t0: -99 };
     this.tmp = V(0, 0, 0); this.tmp2 = V(0, 0, 0); this.lc = V(0, 0, 0); this.cur = V(0, 0, 0);
-    this.fEnd = 40; this.FP1 = V(.55, -.05, .3); this.FL1 = V(.2, 0, -3);
-    try { renderer.compile(this.micro.scene, this.micro.rtCam); } catch (e) { /* ignore */ }
+    this.fEnd = 40; this.FP1 = V(.12,.03,2.5); this.FL1 = V(.12,.03,-3);
+    this.warmExtra = [[this.micro.scene, this.micro.rtCam]]; // the engine warms these too (the loupe / dive world)
 
     // ---- DOM
     add(layer, `<style>${CSS}</style>`);
@@ -140,8 +144,12 @@ export default {
     this.plasmaTag = add(layer, `<div class="cv-tag pin fx fade d4" data-b="-0"><div class="cv-plasma" style="position:absolute;transform:translate(-100%,-50%)">plasma</div></div>`);
     this.legTag = add(layer, `<div class="cv-tag pin fx fade d6" data-b="-0"><div class="cv-leg" style="position:absolute;transform:translate(-50%,0)">
       <span><i style="background:${MCOL.enz}"></i>entzima</span><span><i style="background:${PAL.teal}"></i>substratua</span><span class="ar">→</span><span><i style="background:${PAL.pink}"></i>produktua</span></div></div>`);
-    this.trace = makeTrace(layer);
-    add(layer, `<div class="key c fx pop d3" data-b="1" style="top:390px;bottom:auto;font-size:80px;padding:60px 0;text-shadow:${TEXT_HALO};background:${SCRIM(.86)}">Zer kontatzen digu<br><em>odol-lagin batek?</em><div style="font:500 32px/1.3 var(--sans);color:var(--ink2);margin-top:30px;letter-spacing:.3px">Odoleko entzimen jarduera <span style="color:var(--amber)">→</span> ehunen egoera</div></div>`);
+    this.trace = makeTrace(layer); this.trace.el.dataset.b='0-0'; this.trace.el.classList.add('fx','fade');
+    const guide=el('svg',{width:1920,height:1080,'aria-hidden':true,style:'position:absolute;inset:0;pointer-events:none'});
+    guide.dataset.b='0-0'; guide.classList.add('fx','fade'); layer.appendChild(guide);
+    this.signalGuide=el('path',{fill:'none',stroke:PAL.amber,'stroke-width':1.3,opacity:.22},guide);
+    this.signals=Array.from({length:10},()=>({start:null,node:el('circle',{r:4,fill:PAL.amber,opacity:0},guide)}));
+    add(layer, `<div class="key c fx pop d3" data-b="1" style="top:390px;bottom:auto;font-size:80px;padding:60px 0;text-shadow:${TEXT_HALO};background:transparent">Zer kontatzen digu<br><em>odol-lagin batek?</em><div style="font:500 32px/1.3 var(--sans);color:var(--ink2);margin-top:30px;letter-spacing:.3px">Odoleko entzimen jarduera <span style="color:var(--amber)">→</span> ehunen egoera</div></div>`);
   },
   enter(b) {
     this.dive.set(b >= 1 ? 1 : 0);
@@ -150,11 +158,12 @@ export default {
   beat(b) { this.dive.to(b >= 1 ? 1 : 0, 3, ease.io); },
   update(dt, t) {
     const k = this.dive.v, it = t - this.intro.t0;
-    this.micro.update(dt, t);
+    this.micro.update(dt,t,k);
     this.trace.update(dt, t);
 
     // ---- intro choreography: tube settles, marker appears, loupe grows out of it, leader lines follow
-    const tk = ease.out(clamp((it - .1) / 1.6));
+    const arrival=clamp((it-.1)/1.25), tk=ease.spring(arrival);
+    this.tube.surf.rotation.z=Math.sin(arrival*3*Math.PI)*(1-arrival)*.14;
     this.pivot.position.y = -2.45 + (1 - tk) * .5;
     this.tube.group.rotation.y = -1.0 + (1 - tk) * .5 + Math.sin(t * .22) * .14;
     this.sh[0].material.opacity = .16 * tk; this.sh[1].material.opacity = .32 * tk * tk;
@@ -197,7 +206,7 @@ export default {
 
     // ---- which world is on screen: the bench (+ loupe rendered into a small target) or, deep in the dive, the plasma itself
     if (k <= .5) {
-      const rt = k > 0 && quality.level ? this.rtHi : this.rtLo;
+      const rt = this.rtLo;
       this.disc.material.uniforms.uMap.value = rt.texture;
       if (this.loupe.visible) {
         const prev = renderer.getRenderTarget(), ps = U.pxScale.value;
@@ -222,6 +231,16 @@ export default {
     const pp = screenOf(this.tmp.set(this.Mc.x - .62, my, this.Mc.z), cam);
     this.plasmaTag.style.transform = `translate(${(pp.x - 52).toFixed(1)}px,${pp.y.toFixed(1)}px)`;
     const lp = screenOf(this.tmp.set(this.lc.x, this.lc.y - lr * 1.06 - .2, this.lc.z), cam);
+    const gx=lp.x+72, gy=lp.y+44, ex=TRACE.x+TRACE.w-8, ey=TRACE.y+TRACE.h-8;
+    this.signalGuide.setAttribute('d',`M${gx} ${gy} Q${ex} ${gy} ${ex} ${ey}`);
+    this.signalGuide.style.opacity=.22*lk*(1-clamp(k*5));
+    for(const pulse of this.signals){
+      if(pulse.start===null)continue;
+      const u=clamp((t-pulse.start)/.67), v=1-u;
+      if(u>=1||k>.01){if(k<=.01)this.trace.pulse();pulse.node.setAttribute('opacity',0);pulse.start=null;continue;}
+      pulse.node.setAttribute('cx',v*v*gx+(1-v*v)*ex);pulse.node.setAttribute('cy',(1-u*u)*gy+u*u*ey);
+      pulse.node.setAttribute('opacity',.85*lk*Math.sin(Math.PI*u));
+    }
     this.legTag.style.transform = `translate(${lp.x.toFixed(1)}px,${lp.y.toFixed(1)}px)`;
     this.legTag.firstElementChild.style.opacity = clamp((lk - .8) / .2).toFixed(3); this.plasmaTag.firstElementChild.style.opacity = mk.toFixed(3);
   },

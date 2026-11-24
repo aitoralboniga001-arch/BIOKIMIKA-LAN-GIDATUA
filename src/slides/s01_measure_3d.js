@@ -1,6 +1,7 @@
 // 3D pieces for slide 1: an HDL particle worked on by LCAT, the clotting cascade ending in a fibrin mesh,
 // and a two-cuvette spectrophotometer for the activity assay. Each factory returns { group, update(t, dt) } plus handles.
 import { THREE, clamp, ease, rng } from '../core.js';
+import { glassMat } from '../optics.js';
 import { blobGeo, proteinMat, fresnelMat, halo, rbcGeo, rbcMat, C, COL, COL3 } from '../lib3d.js';
 
 const V = (x, y, z) => new THREE.Vector3(x, y, z);
@@ -159,7 +160,7 @@ export function makeCascade({ NF = 5, x0 = -1.85, dx = .6, y = -.95, mesh = V(1.
   }
   // --- two red cells caught in the mesh at the end
   const rbcG = rbcGeo(.17), rbcM = rbcMat();
-  const rbcs = [[V(mesh.x - .3, mesh.y + .2, .05), V(mesh.x - 1.5, mesh.y + .7, .3), .6, .3], [V(mesh.x + .42, mesh.y - .28, -.05), V(mesh.x + 1.3, mesh.y - 1.0, .2), -.4, 1.1]].map(([at, from, rz, ry]) => {
+  const rbcs = [[V(mesh.x - .3, mesh.y + .2, .05), V(mesh.x - 1.5, mesh.y + .7, .3), .6, .3], [V(mesh.x + .42, mesh.y - .28, -.05), V(mesh.x + 1.3, mesh.y - 1.0, .2), -.4, 1.1], [V(mesh.x+.15,mesh.y+.42,.08),V(mesh.x+1.35,mesh.y+.95,.35),.45,.72]].map(([at, from, rz, ry]) => {
     const m = new THREE.Mesh(rbcG, rbcM); m.rotation.set(1.2, ry, rz); group.add(m); return { m, at, from, rz }; });
 
   const cFg = C('#D4CCEE'), cFb = C(COL3.violet), col = C('#fff');
@@ -208,7 +209,7 @@ export function makeSpectro(rows, { xL = -1.32, xD = 1.36, cw = .56, chh = .9 } 
   const group = new THREE.Group();
   const housingMat = new THREE.MeshPhysicalMaterial({ color: C('#3A465C'), roughness: .45, clearcoat: .5, envMapIntensity: .7 });
   const bulbMat = new THREE.MeshBasicMaterial({ color: C('#FFE6A6') });
-  const beamGeo = new THREE.CylinderGeometry(.045, .045, 1, 20, 1, true); beamGeo.rotateZ(Math.PI / 2);
+  const beamGeo = new THREE.CylinderGeometry(.085, .025, 1, 20, 1, true); beamGeo.rotateZ(Math.PI / 2);
   const glassGeo = new THREE.BoxGeometry(cw, chh, cw), edgeGeo = new THREE.EdgesGeometry(glassGeo);
   const out = rows.map(r => {
     const g = new THREE.Group(); g.position.y = r.y; group.add(g);
@@ -217,25 +218,48 @@ export function makeSpectro(rows, { xL = -1.32, xD = 1.36, cw = .56, chh = .9 } 
     const bulb = new THREE.Mesh(new THREE.SphereGeometry(.08, 18, 12), bulbMat); bulb.position.x = xL + .14; g.add(bulb);
     const bh = halo('#FFC35A', .7, .55); bh.position.copy(bulb.position); g.add(bh);
     // beam in / through / out
-    const mk = (x0, x1, op) => { const m = new THREE.Mesh(beamGeo, new THREE.MeshBasicMaterial({ color: C('#FFC35A'), transparent: true, opacity: op, depthWrite: false })); m.scale.x = x1 - x0; m.position.x = (x0 + x1) / 2; g.add(m); return m; };
+    // A shared wave phase makes the incident beam comparable across both rows.
+    // Optical depth accumulates only inside the solution, then stays constant to the detector.
+    const clock={value:0}, absorbance={value:0};
+    const mk = (x0,x1,opacity) => {
+      const material=new THREE.MeshBasicMaterial({color:C('#FFC35A'),transparent:true,opacity,depthWrite:false});
+      material.onBeforeCompile=shader=>{
+        Object.assign(shader.uniforms,{uPath:{value:new THREE.Vector2(x0,x1)},uClock:clock,uAbs:absorbance,uWidth:{value:cw}});
+        shader.vertexShader='uniform vec2 uPath; varying float vRayX;\n'+shader.vertexShader.replace('#include <begin_vertex>',
+          '#include <begin_vertex>\n vRayX=mix(uPath.x,uPath.y,position.x+.5);');
+        shader.fragmentShader='uniform float uClock,uAbs,uWidth; varying float vRayX;\n'+shader.fragmentShader.replace('#include <color_fragment>',
+          `#include <color_fragment>
+           float depth=clamp(vRayX/uWidth+.5,0.,1.);
+           float transmission=pow(10.,-1.2*uAbs*depth);
+           float pulse=pow(.5+.5*cos(vRayX*14.-uClock*7.),6.);
+           diffuseColor.rgb=mix(diffuseColor.rgb,vec3(1.,.89,.55),pulse);
+           diffuseColor.a*=transmission*(.32+.68*pulse);`);
+      };
+      const m=new THREE.Mesh(beamGeo,material);
+      m.scale.x=x1-x0; m.position.x=(x0+x1)/2;g.add(m);return m;
+    };
     const bIn = mk(xL + .18, -cw / 2, .6), bMid = mk(-cw / 2, cw / 2, .35), bOut = mk(cw / 2, xD - .17, .6);
     // cuvette: glass box with crisp edges and a solution that colours as product forms
     const liq = new THREE.Mesh(new THREE.BoxGeometry(cw - .06, chh * .74, cw - .06), new THREE.MeshPhysicalMaterial({ color: C('#F4EEF2'), roughness: .2, transparent: true, opacity: .4, depthWrite: false, envMapIntensity: .6 }));
     liq.position.y = -chh * .1; g.add(liq);
-    g.add(new THREE.Mesh(glassGeo, fresnelMat({ color: COL3.glass, power: 1.6, intensity: .6, base: .05 })));
+    g.add(new THREE.Mesh(glassGeo, glassMat(COL3.glass)));
     g.add(new THREE.LineSegments(edgeGeo, new THREE.LineBasicMaterial({ color: C(COL3.glass), transparent: true, opacity: .55 })));
     // detector
     const det = new THREE.Mesh(new THREE.BoxGeometry(.34, .44, .34), housingMat); det.position.x = xD + .02; g.add(det);
     const win = new THREE.Mesh(new THREE.CircleGeometry(.07, 20), new THREE.MeshBasicMaterial({ color: C('#FFE0A0') })); win.rotation.y = -Math.PI / 2; win.position.x = xD - .155; g.add(win);
     const led = new THREE.Mesh(new THREE.PlaneGeometry(.2, .08), new THREE.MeshBasicMaterial({ color: C(COL3.teal) })); led.position.set(xD + .02, .08, .171); g.add(led);
-    return { g, liq, bIn, bMid, bOut, win, bh, led, liqY: liq.position.y, liqH: chh * .74, inner: cw - .12 };
+    return { g, liq, bIn, bMid, bOut, win, bh, led, clock, absorbance, liqY: liq.position.y, liqH: chh * .74, inner: cw - .12 };
   });
   const pale = C('#F4EEF2'), pink = C(COL3.pink);
   return { group, rows: out,
     // a: absorbance 0..1 per row
     set(i, a, t) { const r = out[i], T = Math.pow(10, -a * 1.2);
       r.liq.material.color.lerpColors(pale, pink, clamp(a * 1.1)); r.liq.material.opacity = .4 + a * .3;
-      r.bMid.material.opacity = .2 + .2 * T; r.bOut.material.opacity = .08 + .55 * T; r.win.material.color.setRGB(1, .88 * (.55 + .45 * T), .63 * (.4 + .6 * T));
+      r.clock.value=t; r.absorbance.value=a;
+      const pulse=Math.pow(.5+.5*Math.cos((xD-.17)*14-t*7),6);
+      const signal=(.42+.58*pulse)*T;
+      r.win.material.color.setRGB(.26+.74*signal,.17+.66*signal,.06+.36*signal);
+      r.led.material.color.setRGB(.04+.12*signal,.28+.61*signal,.24+.44*signal);
       r.bh.material.opacity = .45 + .08 * Math.sin(t * 9 + i); },
   };
 }
