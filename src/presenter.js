@@ -49,13 +49,13 @@ button{background:var(--panel);color:var(--ink);border:1px solid var(--line);bor
 #rep td.n{text-align:right;font-family:'JetBrains Mono',monospace} #rep tr.over td.n:last-child{color:var(--bad)}
 `;
 // suggested minutes per chapter (talk script appendix): 1 + 3 + 3 + 2 + 1 = 10; the cover counts toward chapter 1
-const BUDGET = [1, 3, 3, 2, 1];
+const BUDGET = [1, 3, 3, 2, 1];  // part 3 now includes the infarct example (figure 5)
 const mmss = s => `${s < 0 ? '−' : ''}${String(Math.floor(Math.abs(s) / 60)).padStart(2, '0')}:${String(Math.floor(Math.abs(s)) % 60).padStart(2, '0')}`;
 const LS = 'entzimak.rehearsal';
 
 export class Presenter {
-  constructor({ slides, notes, chapters, onKey, getState, stageTools }) {
-    Object.assign(this, { slides, notes, chapters, onKey, getState, stageTools }); this.w = null;
+  constructor({ slides, notes, chapters, onKey, getState, stageTools, subpointAt }) {
+    Object.assign(this, { slides, notes, chapters, onKey, getState, stageTools, subpointAt }); this.w = null;
     // per-beat target seconds: each chapter's budget spread over that chapter's beats
     this.beats = []; // { si, bi, ch, target, start } in talk order
     const chOf = s => Math.max(0, s.chapter);
@@ -126,7 +126,7 @@ export class Presenter {
     const w = this.w; if (!w || w.closed) return;
     const d = w.document, s = this.slides[state.si];
     d.getElementById('ch').textContent = s.chapter >= 0 ? `${s.chapter + 1}. ${this.chapters[s.chapter]}` : 'Hasiera';
-    d.getElementById('tt').textContent = s.title;
+    { const sp = this.subpointAt && this.subpointAt(s.id, state.bi); d.getElementById('tt').textContent = sp ? `${sp[0]} · ${sp[1]} — ${s.title}` : s.title; }
     d.getElementById('pos').innerHTML = `${state.si + 1}/${this.slides.length}<br>klika ${state.bi + 1}/${s.beats}${state.autoQ ? '<br>Q automatikoa' : ''}`;
     d.getElementById('cue').innerHTML = this.cueOf(state.si, state.bi);
     let ns = state.si, nb = state.bi + 1; if (nb >= s.beats) { ns++; nb = 0; }

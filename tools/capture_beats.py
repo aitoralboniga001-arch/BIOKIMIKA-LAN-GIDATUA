@@ -23,11 +23,11 @@ def capture():
         page.on('console',lambda m: failures.append(m.text) if m.type in ('error','warning') else None)
         page.goto((deck/'index.html').as_uri(),wait_until='domcontentloaded')
         page.wait_for_selector('#loading.gone',state='attached',timeout=180000)
-        page.add_style_tag(content='*{transition-duration:0s!important;transition-delay:0s!important}#loading,.time-hint{display:none!important}')
+        page.add_style_tag(content='*{transition-duration:0s!important;transition-delay:0s!important}#loading,.time-hint{display:none!important}.subpt{animation:none!important}')
         page.keyboard.press('q')
         if page.evaluate('__pres.quality')!=1: page.keyboard.press('q')
         # Choose a representative instant for mechanisms whose end state conceals the action.
-        seconds={(3,3):2.4,(4,2):1.35,(4,3):4.15,(4,4):4.65,(4,5):4.65,(12,3):2.10,(12,4):3.55,(8,1):3.2,(10,5):3.4,(11,1):2.65,(11,2):3.6,(11,3):4.8,(12,2):4.3}
+        seconds={(3,3):2.4,(4,2):1.35,(4,3):4.15,(4,4):4.65,(4,5):4.65,(9,3):2.10,(9,4):3.55,(8,1):3.2,(11,5):3.4,(12,1):2.65,(12,2):3.6,(12,3):4.8,(9,2):4.3}
         counts=page.evaluate('()=>__pres.SLIDES.map(s=>s.beats)')
         for i,count in enumerate(counts,1):
             if options.slides and i not in options.slides: continue

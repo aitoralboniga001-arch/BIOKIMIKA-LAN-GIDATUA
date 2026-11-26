@@ -26,7 +26,7 @@ const PG = V(-3.02, .93, 0), PS = 1.36;            // pancreas group position / 
 export default {
   id: 'pancreas', chapter: 2, beats: 3, title: 'Pankreatitis akutua: amilasa eta lipasa', bloom: .5,
   bridgeIn: { focus() { return this.pg.getWorldPosition(_bf); } },                     // ... into the pancreas
-  bridge: { mode: 'flow', dir: [1, 0] },
+  bridge: { mode: 'dive', focus() { return this.pg.getWorldPosition(_bf); } },           // dive through the pancreas ...
   build(layer) {
     const S = makeScene({ glow: '#F2FAF7', gx: .2, gy: .5 }); this.S = S; this.scene = S.scene; this.camera = S.camera;
     this.rig = new CamRig(this.camera, V(0, 0, 10), V(0, 0, 0), { fov: 34, drift: .03 });

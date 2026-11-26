@@ -69,7 +69,7 @@ export function initRenderer(canvas) {
 let warmRT = null;
 // compileOnly: just issue the programs (with KHR_parallel_shader_compile the driver links them in the background, so
 // issuing every slide first and drawing afterwards overlaps the work); otherwise draw once, which also uploads buffers.
-export function warmScene(scene, cam, compileOnly = false) {
+export function warmScene(scene, cam, compileOnly = false, target = null) {
   if (!warmRT) warmRT = new THREE.WebGLRenderTarget(64, 36, { type: THREE.HalfFloatType });
   const samples = quality.level ? Math.min(4,renderer.capabilities.maxSamples) : 0;
   if(warmRT.samples!==samples){warmRT.dispose();warmRT.samples=samples;}
@@ -80,7 +80,7 @@ export function warmScene(scene, cam, compileOnly = false) {
     if (o.isLight) o.visible = lit.has(o); else { o.visible = true; o.frustumCulled = false; }
   });
   const prev = renderer.getRenderTarget();
-  renderer.setRenderTarget(warmRT);
+  renderer.setRenderTarget(target || warmRT);
   if (compileOnly) renderer.compile(scene,cam); else renderer.render(scene,cam);
   renderer.setRenderTarget(prev);
   for (let i = 0; i < saved.length; i += 3) { saved[i].visible = saved[i + 1]; saved[i].frustumCulled = saved[i + 2]; }
@@ -162,7 +162,7 @@ export class Label {
   constructor(layer, html, { color = INK, side = 'up', anchor = null, obj = null, b = null } = {}) {
     this.el = h(`<div class="lab ${side === 'up' ? '' : side}" style="color:${color}"><div class="stem"></div><div class="dot"></div><div class="t">${html}</div></div>`);
     if (b != null) { this.el.dataset.b = b; this.el.classList.add('fxl'); }
-    this.el.style.opacity = 0; // hidden until the first update() has placed it
+    this.el.style.opacity = 0; this.el.classList.add('off'); this.off = true; // hidden until the first update() has placed it
     layer.appendChild(this.el);
     this.anchor = anchor ? anchor.clone() : new THREE.Vector3(); this.obj = obj; this.vis = 1;
   }
@@ -173,7 +173,9 @@ export class Label {
     if (want !== this.want) { this.want = want; this.tw = clock.t + (want ? .12 : 0); }
     const f0 = this.f || 0;
     if (clock.t >= this.tw) this.f = want ? Math.min(1, f0 + clock.dt / .4) : Math.max(0, f0 - clock.dt / .2);
-    if (!this.f) { if (this.el.style.opacity !== '0') this.el.style.opacity = '0'; return; }
+    // fully hidden labels leave the compositor (no layer to keep or re-raster when the slide layer scales)
+    if (!this.f) { if (!this.off) { this.off = true; this.el.style.opacity = '0'; this.el.classList.add('off'); } return; }
+    if (this.off) { this.off = false; this.el.classList.remove('off'); }
     _v.copy(this.anchor); if (this.obj) this.obj.localToWorld(_v);
     _v.project(cam);
     const e = 1 - (1 - this.f) ** 4;

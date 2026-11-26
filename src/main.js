@@ -1,6 +1,6 @@
 // Presentation engine: one 16:9 stage, slides made of "beats", → advances a beat, ← goes back.
 import { THREE, W, H, clock, U, initRenderer, resize, renderer, composer, renderPass, bloom, quality, applyBeat, h, warmScene } from './core.js';
-import { SLIDES, CHAPTERS } from './slides/index.js';
+import { SLIDES, CHAPTERS, SUBPOINTS, subpointAt } from './slides/index.js';
 import { NOTES } from './notes.js';
 import { Presenter } from './presenter.js';
 import { applyTheme, CHAPTER_LOOK, CHAPTER_ACCENT } from './theme.js';
@@ -51,6 +51,25 @@ function updateChrome() {
     }
     e.querySelector('i').style.transform = `scaleX(${f})`;
   });
+}
+
+// ---------------------------------------------------------------- script sub-points (eyebrow: chapter · n.m label · dots)
+function addSubpoints(s) {
+  const eb = s.layer.querySelector('.eyebrow'); if (!eb || !SUBPOINTS[s.id] || s.chapter < 0) return;
+  eb.innerHTML = `<b>${s.chapter + 1}</b>${CHAPTERS[s.chapter]}`;
+  const all = SLIDES.filter(x => x.chapter === s.chapter).flatMap(x => (SUBPOINTS[x.id] || []).map(p => p[0]));
+  const sp = h(`<span class="subpt"><span class="sn"></span><span class="st"></span><span class="sd">${all.map(n => `<i data-n="${n}"></i>`).join('')}</span></span>`);
+  eb.appendChild(sp); s.subEl = sp;
+}
+function updateSubpoint() {
+  const s = SLIDES[state.si], sp = s?.subEl; if (!sp) return;
+  const p = subpointAt(s.id, state.bi); if (!p) return;
+  if (sp.dataset.n === p[0]) return;
+  const first = !sp.dataset.n; sp.dataset.n = p[0];
+  const write = () => { sp.querySelector('.sn').textContent = p[0]; sp.querySelector('.st').textContent = p[1];
+    sp.querySelectorAll('.sd i').forEach(i => { i.classList.toggle('on', i.dataset.n === p[0]); i.classList.toggle('done', i.dataset.n < p[0]); }); };
+  write(); if (first) return;
+  const a = sp.classList.contains('swapA'); sp.classList.toggle('swapA', !a); sp.classList.toggle('swapB', a);  // restart without a layout read
 }
 
 // ---------------------------------------------------------------- navigation
@@ -117,7 +136,7 @@ function prev() {
   if (state.bi > 0) setBeat(state.bi - 1, -1); else if (state.si > 0) goSlide(state.si - 1, SLIDES[state.si - 1].beats - 1, -1);
 }
 function afterChange() {
-  updateChrome();
+  updateChrome(); updateSubpoint();
   stage.classList.toggle('can-sample',Boolean(stageTools.getPlot()));
   // the URL write can make the host re-style the page: do it once things are calm, never mid-bridge
   const previous = location.hash, target = `#${state.si + 1}.${state.bi + 1}`;
@@ -186,7 +205,7 @@ const stageTools = new StageTools(stage,SLIDES,CHAPTERS,()=>state,goSlide,()=>{
   const inspectable=cur.id==='tissues'||(['ck','ldh'].includes(cur.id)&&state.bi===0)||(cur.id==='infarct'&&state.bi<2);
   return inspectable?cur.rig:null;
 });
-const presenter = new Presenter({ stageTools, slides: SLIDES, notes: NOTES, chapters: CHAPTERS, onKey: handleKey, getState: () => state });
+const presenter = new Presenter({ subpointAt, stageTools, slides: SLIDES, notes: NOTES, chapters: CHAPTERS, onKey: handleKey, getState: () => state });
 
 // ---------------------------------------------------------------- main loop
 let last = performance.now(); let grabName = null;
@@ -269,7 +288,7 @@ async function boot() {
   for (let i = 0; i < SLIDES.length; i++) {
     const s = SLIDES[i];
     s.layer = h(`<div class="layer" data-slide="${s.id}"></div>`); layers.appendChild(s.layer);
-    const tb = performance.now(); s.build(s.layer); lightStage(s); (prof.build || (prof.build = [])).push(Math.round(performance.now() - tb));
+    const tb = performance.now(); s.build(s.layer); lightStage(s); addSubpoints(s); (prof.build || (prof.build = [])).push(Math.round(performance.now() - tb));
     s.layer.querySelectorAll('[data-b]').forEach(e => { if (!e.classList.contains('fx') && !e.classList.contains('draw') && !e.classList.contains('dim') && !e.classList.contains('lab')) e.classList.add('fx'); });
     await progress((i + 1) / SLIDES.length * .45);
   }
@@ -294,6 +313,11 @@ async function boot() {
   composer.render(0); quality.level=0; fit(); composer.render(0);
   for(const [scene,cam] of warmList) warmScene(scene,cam);
   quality.level=1; fit(); bridge.warm();
+  // also draw every scene once through the bridge's own target (the outgoing half of a transition), in both
+  // qualities, so the first real transition out of each slide does no first-use GPU work mid-talk
+  for (const lv of [0, 1]) { quality.level = lv; fit(); for (const s of SLIDES) bridge.warmOutgoing(s); }
+  quality.level = 1; fit();
+  for (const s of SLIDES) s.afterLayout?.();
   const m = /^#(\d+)(?:\.(\d+))?/.exec(location.hash);
   let si = 0, bi = 0;
   if (m) { si = Math.min(SLIDES.length - 1, Math.max(0, +m[1] - 1)); bi = Math.min(SLIDES[si].beats - 1, Math.max(0, (+m[2] || 1) - 1)); }

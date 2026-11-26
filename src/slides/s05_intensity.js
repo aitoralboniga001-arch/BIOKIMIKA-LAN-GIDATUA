@@ -56,8 +56,8 @@ export default {
   bridge: { mode: 'register', scaleRatio: 1.12, focus() { return this.sc[1].tube.getWorldPosition(_bf); } },
   build(layer) {
     const S = makeScene({ glow: '#FFF1E6', gx: .5, gy: .6 }); this.S = S; this.scene = S.scene; this.camera = S.camera;
-    const A0 = [V(0, 1.85, 15.5), V(0, .12, 0), 34], A1 = [V(4.05, 2.3, 19.8), V(4.05, -.1, 0), 34]; // framed so counters clear the title and the equations end above y = 970 // card on the right: both slabs shift left, clear of it
-    this.shots = [A0, [V(.42,1.65,15.6),V(.18,.1,0),34], A1, A1];
+    const A0 = [V(0, 2.04, 15.9), V(0, .27, 0), 34], A1 = [V(4.05, 2.3, 19.8), V(4.05, -.1, 0), 34]; // framed so counters clear the title and the equations end above y = 970 // card on the right: both slabs shift left, clear of it
+    this.shots = [A0, [V(.42,1.99,15.95),V(.18,.27,0),34], A1, A1];
     this.rig = new CamRig(this.camera, this.shots[0][0], this.shots[0][1], { fov: 34, drift: .04 });
     const R = rng(9);
     const m4 = new THREE.Matrix4();
@@ -165,7 +165,7 @@ export default {
   },
   update(dt, t) {
     this.rig.update(t); this.S.dust.update(t);
-    if(this.compareTime>=0){this.compareTime+=dt;if(this.compareTime>2.15){this.compareTime=-1;this.rig.go(V(.48,1.66,15.2),V(.18,.06,0),2.5,34); /* slight push-in: both equations stay above y = 970 */}}
+    if(this.compareTime>=0){this.compareTime+=dt;if(this.compareTime>2.15){this.compareTime=-1;this.rig.go(V(.48,1.97,15.9),V(.18,.285,0),2.5,34); /* slight push-in: both equations stay above y = 970 */}}
     const k = this.k.v, m4 = this.m4, cam = this.camera;
     let done = true;
     for (const s of this.sc) {

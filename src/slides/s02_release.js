@@ -167,8 +167,8 @@ export default {
       new Label(layer, 'Ehuneko zelula', { color: PAL.coral, anchor: V(-1.2, -1.2, 0), obj: cell.group, side: 'l', b: '-4' }),
       // after necrosis the ghost keeps a name, on a pill so the spray of debris never makes it illegible
       new Label(layer, 'Zelula nekrotikoa', { color: PAL.coral, anchor: V(-1.2, -1.2, 0), obj: cell.group, side: 'l', b: '-4' }),
-      new Label(layer, 'Plasma <span style="font-weight:400">(odola)</span>', { color: PAL.amber, anchor: V(.43, POOL.y1 + 1.20, 0), obj: pool, b: '-4' }),
-      new Label(layer, 'eliminazioa<small>batez ere katabolismoa</small><small>giltzurruna: entzima txikiak</small>', { color: PAL.blue, anchor: V(-.35, POOL.y0 - .7, 0), obj: pool, side: 'l', b: '-4' }),
+      new Label(layer, 'Plasma <span style="font-weight:400">(odola)</span>', { color: PAL.amber, anchor: V(-.55, POOL.y1 + 1.20, 0), obj: pool, b: '-4' }),
+      new Label(layer, 'eliminazioa<small>batez ere katabolismoa</small><small>giltzurruna: entzima txikiak</small>', { color: PAL.blue, anchor: V(-.35, POOL.y0 - .48, 0), obj: pool, side: 'l', b: '-4' }),
     ];
     this.labs[1].el.classList.add('bg');
   },

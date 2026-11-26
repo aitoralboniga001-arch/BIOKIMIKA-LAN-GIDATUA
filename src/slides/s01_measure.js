@@ -139,14 +139,14 @@ export default {
     this.detLab = LANES.map((L, i) => new Label(layer, `detektagailua<small><span class="m-abs mono">abs. 0.00</span></small>`, { color: INK2, anchor: V(1.38, L.y + .26, 0), obj: this.big, b: '2-2' }));
     this.absEl = this.detLab.map(l => l.el.querySelector('.m-abs'));
     this.labs = [
-      new Label(layer, 'HDL<small>esterrak nukleoan metatzen dira</small>', { color: PAL.orange, anchor: V(-.55, 1.62, 0), obj: this.plasma, b: '0-0' }),
+      new Label(layer, 'HDL<small>esterrak nukleoan metatzen dira</small>', { color: PAL.orange, anchor: V(.1, 1.9, 0), obj: this.plasma, side: 'r', b: '0-0' }),
       new Label(layer, 'LCAT<small>kolesterola → esterra</small>', { color: PAL.mint, anchor: V(0, 0, 0), obj: this.plasma, side: 'r', b: '0-0' }),
       new Label(layer, 'Koagulazio-faktoreak<small>inaktibo → aktibo, katean</small>', { color: PAL.lav, anchor: V(-.45, -.5, 0), obj: this.plasma, b: '0-0' }),
       new Label(layer, 'trombina', { color: PAL.violet, anchor: V(-1.6 + 4 * .58 + .05, -.72, 0), obj: this.plasma, b: '0-0' }),
       new Label(layer, 'fibrinogenoa → fibrina', { color: PAL.violet, anchor: V(1.78, -.12, 0), obj: this.plasma, b: '0-0' }),
       new Label(layer, 'Zelula (ehuna)', { color: PAL.coral, anchor: V(1.15, -1.3, 0), obj: cell.group, side: 'r', b: '1-1' }),
       new Label(layer, 'oinarrizko askapena<small>banan-banan</small>', { color: PAL.coral, anchor: V(2.1, -.6, 0), obj: cell.group, b: '1-1' }),
-      new Label(layer, 'Plasma<small>bertan jarduten dutenak</small>', { color: PAL.mint, anchor: V(2.75, .1, 0), obj: this.plasma, side: 'r', b: '3' }),
+      new Label(layer, 'Plasma<small>bertan jarduten dutenak</small>', { color: PAL.mint, anchor: V(2.25, -.12, 0), obj: this.plasma, side: 'up', b: '3' }),
       new Label(layer, 'Ehuna<small>zelula barrukoak</small>', { color: PAL.coral, anchor: V(-1.75, 0, 0), obj: cell.group, side: 'l', b: '3' }),
       new Label(layer, 'A lagina<small>entzima 1×</small>', { color: PAL.amber, anchor: V(0, LANES[0].y + .5, 0), obj: this.big, b: '2-2' }),
       new Label(layer, 'B lagina<small>entzima 2×</small>', { color: PAL.coral, anchor: V(0, LANES[1].y + .5, 0), obj: this.big, b: '2-2' }),

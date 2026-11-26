@@ -49,8 +49,8 @@ body.hidecursor { cursor: none; }
 #chapcard .cc-name em { color:var(--acc); }
 #chapcard .cc-dots { position:absolute; left:580px; top:599px; display:flex; gap:7px; }
 #chapcard .cc-dots i { width:48px; height:3px; background:rgba(20,32,51,.18); }
-#chapcard .cc-dots i.on { background:color-mix(in srgb,var(--acc) 55%,transparent); }
-#chapcard .cc-dots i.on:not(:has(+ i.on)) { background:var(--acc); }
+#chapcard .cc-dots i.on { background:var(--acc); opacity:.55; }
+#chapcard .cc-dots i.on:not(:has(+ i.on)) { opacity:1; }
 .structure-source { position:absolute; right:96px; top:905px; text-align:right; font:450 22px/1.28 var(--sans); color:var(--mute); }
 
 /* ---------- slide layers ---------- */
@@ -104,6 +104,7 @@ body.hidecursor { cursor: none; }
 
 /* 3D-anchored labels */
 .lab { position: absolute; left: 0; top: 0; will-change: transform; transition: opacity .5s; white-space: nowrap; }
+.lab.off { visibility: hidden; will-change: auto; }
 .lab .t { position: absolute; transform: translate(-50%, -100%); padding-bottom: 14px; font: 600 var(--t-label)/1.1 var(--sans); color: var(--ink); text-align: center;
   text-shadow: var(--halo); letter-spacing: -.005em; }
 .lab .t small { display: block; font: 400 var(--t-foot)/1.2 var(--sans); color: var(--mute); margin-top: 3px; letter-spacing: 0; }
@@ -235,7 +236,8 @@ body.projector #stage img {filter:contrast(1.09);}
 .atlas-row::before { content:""; width:4px; position:absolute; left:0; top:14px; bottom:14px;
   background:var(--enzyme); transform:scaleY(.25); opacity:.65; transition:transform .45s ease, opacity .45s; }
 .atlas-row.selected::before { transform:scaleY(1); opacity:1; }
-.atlas-row.selected { background:linear-gradient(90deg,color-mix(in srgb,var(--enzyme) 9%,transparent),transparent); }
+/* precomputed tints: a color-mix() inside a gradient costs Chrome ~0.2 s the first time the layer is composited */
+.atlas-row.selected { background:linear-gradient(90deg,var(--enzyme-tint),var(--enzyme-tint0)); }
 .atlas-name { font:500 31px/1.1 var(--sans); transition:transform .45s ease; }
 .atlas-row.selected .atlas-name { transform:translateX(6px); font-weight:700; color:var(--enzyme); }
 .atlas-sites { display:flex; gap:5px; opacity:0; transition:opacity .4s; }
@@ -312,3 +314,18 @@ body.projector #stage img {filter:contrast(1.09);}
 .ldh-meter { overflow:visible; box-shadow:none; border-radius:9px; }
 .ldh-meter .fill { height:412px; border-radius:4px; transform:scaleY(0); transform-origin:bottom; }
 .ldh-meter .ref { left:1px; right:1px; bottom:1px; border-radius:0 0 8px 8px; }
+
+/* script sub-point in the eyebrow: chapter · n.m label · one dot per sub-point of the chapter */
+.eyebrow .subpt { display: inline-flex; align-items: center; margin-left: 22px; padding-left: 22px; position: relative;
+  letter-spacing: 0; text-transform: none; }
+.eyebrow .subpt.swapA { animation: subptInA .42s cubic-bezier(.2,.7,.2,1); }
+.eyebrow .subpt.swapB { animation: subptInB .42s cubic-bezier(.2,.7,.2,1); }
+@keyframes subptInA { from { opacity: 0; transform: translateY(6px); } }
+@keyframes subptInB { from { opacity: 0; transform: translateY(6px); } }
+.eyebrow .subpt::before { content: ''; position: absolute; left: 0; top: -2px; bottom: -2px; width: 2px; background: var(--acc); opacity: .35; }
+.eyebrow .subpt .sn { font: 500 22px/1 var(--mono); color: var(--acc); margin-right: 12px; }
+.eyebrow .subpt .st { font: 600 22px/1 var(--sans); color: var(--ink2); letter-spacing: .01em; }
+.eyebrow .subpt .sd { display: inline-flex; gap: 7px; margin-left: 18px; }
+.eyebrow .subpt .sd i { width: 8px; height: 8px; border-radius: 50%; border: 1.5px solid var(--acc); opacity: .45; }
+.eyebrow .subpt .sd i.done { background: var(--acc); opacity: .45; }
+.eyebrow .subpt .sd i.on { background: var(--acc); opacity: 1; transform: scale(1.15); }

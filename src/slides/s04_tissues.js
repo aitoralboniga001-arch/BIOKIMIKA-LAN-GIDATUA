@@ -4,6 +4,7 @@ import { organMat } from '../optics.js';
 import { THREE, Tw, add, rng, clamp, Label } from '../core.js';
 import { makeScene, C, COL, COL3, halo, contactShadow, bloodTube, instancedBlobs, Pts } from '../lib3d.js';
 import { CamRig, V } from '../rig.js';
+import { alpha } from '../theme.js';
 import { bodyGeo, organs, vesselPaths, JUNCTION, EXIT } from './s04_tissues_anatomy.js';
 const _bf = new THREE.Vector3(); // scratch vector for the bridge focus
 
@@ -107,7 +108,7 @@ export default {
     add(layer, `<div class="h1">Entzimen <em>ehun-espezifikotasuna</em></div>`);
     const index = add(layer, '<div class="atlas-index"></div>');
     this.indexGuide = add(index, '<div class="atlas-guide" aria-hidden="true"></div>');
-    this.chips = ENZ.map(e => add(index, `<div class="atlas-row" style="--enzyme:${e.c}">
+    this.chips = ENZ.map(e => add(index, `<div class="atlas-row" style="--enzyme:${e.c};--enzyme-tint:${alpha(e.c, .09)};--enzyme-tint0:${alpha(e.c, 0)}">
       <span class="atlas-name">${e.k}</span>
       <span class="atlas-sites">${e.org.map(() => '<i></i>').join('')}</span></div>`));
     this.cards = ENZ.map((e, i) => add(layer, `<div class="abs fx r atlas-entry" data-b="${i + 1}-${i + 1}" style="--enzyme:${e.c}">

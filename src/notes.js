@@ -93,7 +93,7 @@ export const NOTES = {
   refs: ['Bibliografia (galderetan erakusteko).'],
 };
 
-// Who presents each chapter (index = chapter: 0 Sarrera eta neurketa … 4 Infartua eta ondorioak). The group fills these
+// Who presents each chapter (index = chapter: 0 Sarrera eta neurketa … 2 Agerpena eta iraupena (infartua barne) … 4 Ondorioak). The group fills these
 // in; while a name is empty the presenter view simply shows no speaker. The cover counts as chapter 0.
 // Group: Eneritz Baranda, Urtzi Castillo, Ane Hormaetxe, Nora Navascues, Aitor Alboniga.
 export const SPEAKERS = ['', '', '', '', ''];

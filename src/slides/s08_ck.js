@@ -21,6 +21,7 @@ const ck = (a, b) => `<span style="color:var(--ink)">CK-</span><span style="colo
 export default {
   id: 'ck', chapter: 3, beats: 6, title: 'Isoentzimak: CK', bloom: .45,
   // the CK columns morph into the row of LDH isoenzymes
+  bridgeIn: { focus() { return _bf.set(COLX[1], -.45, .45); } },
   bridge: { mode: 'lenses', focus() { return _bf.set(COLX[1], -.45, .45); } },
   build(layer) {
     const S = makeScene({ gx: .5, gy: .45 }); this.S = S; this.scene = S.scene; this.camera = S.camera;

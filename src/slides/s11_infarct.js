@@ -19,13 +19,13 @@ const CKM = balanceModel({ base: .06, peak: .85, k: 11, onset: .02, tRise: .06 }
 const LDM = balanceModel({ base: .06, peak: .7, k: 2.8, onset: .07, tRise: .13 });
 const T_EARLY = .08, T_LATE = .43, T_B1 = .05;
 // left column once the chart is shown (sd = 1): heart top-left, clock beside it, the two tubes in a row below the clock
-const HX = -3.43, HY = -.35, HS = .79, TUBE_S = .4, TUBE_Y = -1.88, TCX = -2.35, TLX = -1.27;
+const HX = -3.55, HY = -.35, HS = .77, TUBE_S = .4, TUBE_Y = -1.88, TCX = -2.35, TLX = -1.27;
 const spreadOf = tau => .08 + .92 * clamp(tau / .12);   // ischaemic territory vs time after the block
 const excessMax = m => { let mx = 0; for (let i = 0; i <= 200; i++) mx = Math.max(mx, m.rel(i / 200) - m.params.k * m.params.base); return mx; };
 const XCK = excessMax(CKM), XLD = excessMax(LDM);
 
 export default {
-  id: 'infarct', chapter: 4, beats: 6, title: 'Miokardioko infartua: CK, LDH eta denbora', bloom: .5,
+  id: 'infarct', chapter: 2, beats: 6, title: 'Miokardioko infartua: CK, LDH eta denbora', bloom: .5,
   bridgeIn: { focus() { return this.hg.getWorldPosition(_bf); } },
   bridge: { mode: 'dive', focus() { const p = this.tC.tube.plasma; return this.tC.group.localToWorld(_bf.set(0, (p.y0 + p.y1) / 2, 0)); } },
   build(layer) {
@@ -55,7 +55,7 @@ export default {
     this.tC = tubeMeter(this.scene, { x: TCX, y: TUBE_Y, s: TUBE_S, color: COL3.coral, n: 60, seed: 5 });
     this.tL = tubeMeter(this.scene, { x: TLX, y: TUBE_Y, s: TUBE_S, color: COL3.blue, n: 60, seed: 9 });
 
-    add(layer, `<div class="eyebrow"><b>5</b>Adibide historikoa</div>`);
+    add(layer, `<div class="eyebrow"><b>3</b>Agerpena eta iraupena</div>`);
     add(layer, `<div class="h1">Miokardioko infartua: <span style="color:var(--coral)">CK</span>, <span style="color:var(--blue)">LDH</span> eta <em>denbora</em></div>`);
     add(layer, `<div class="key" data-b="1-1" style="left:96px;top:900px;bottom:auto;font-size:34px;max-width:1500px">Miokardioa kaltetzen denean, zelula barruko entzimak <em>odolera</em> askatu daitezke</div>`);
     this.ch = new Chart(layer, { x: 900, y: 300, w: 900, h: 420, ref: REF, xLabel: 'Infartuaren ondorengo denbora', yLabel: 'Jarduera plasmatikoa', b: '2' });
@@ -91,7 +91,7 @@ export default {
       <div style="font:italic 400 22px/1.2 var(--serif);color:var(--mute)">eskematikoa</div></div>`);
     this.arc = this.clockEl.querySelector('.arc'); this.hand = this.clockEl.querySelector('.hand'); this.CIRC = CIRC;
     // tube read-outs
-    const tag = (x, name, col, b, cls) => add(layer, `<div class="abs ${cls}" data-b="${b}" style="left:${x - 95}px;top:486px;width:190px;text-align:center"><div style="font:700 28px/1 var(--sans);color:${col}">${name}</div><div class="st" style="font:600 22px/1.2 var(--sans);margin-top:6px;color:var(--mute)"></div></div>`).querySelector('.st');
+    const tag = (x, name, col, b, cls) => add(layer, `<div class="abs ${cls}" data-b="${b}" style="left:${x - 95}px;top:486px;width:190px;text-align:center"><div style="font:700 28px/1 var(--sans);color:${col}">${name}</div><div class="st" style="font:600 22px/1.2 var(--sans);margin-top:6px;color:var(--mute);text-shadow:var(--halo);white-space:nowrap"></div></div>`).querySelector('.st');
     this.stC = tag(556, 'CK', PAL.coral, '2', 'd6'); this.stL = tag(747, 'LDH', PAL.blue, '3', '');
     this.ch.svg.classList.add('d6');   // the chart, clock and CK read-out appear once the heart has moved aside
     this.flash = add(layer, `<div class="pill" data-b="4-5" style="position:absolute;left:556px;top:436px;width:190px;box-sizing:border-box;text-align:center;color:var(--ink)">Lagina</div>`);

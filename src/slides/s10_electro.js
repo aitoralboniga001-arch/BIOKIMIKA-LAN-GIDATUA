@@ -71,7 +71,7 @@ function lcdTex() {
 export default {
   id: 'electro', chapter: 3, beats: 5, title: 'Isoentzimak: elektroforesia', bloom: .8,
   bridgeIn: { focus() { return this.gel.localToWorld(_bf.set(WELL, .108, LANES[0].z)); } },  // ... which lands in the well
-  bridge: { mode: 'register', scaleRatio: 1.22, focus() { return this.gel.localToWorld(_bf.set(this.U.uX.value[0], .108, LANES[0].z)); } },
+  bridge: { mode: 'dive', focus() { return this.gel.localToWorld(_bf.set(this.U.uX.value[0], .108, LANES[0].z)); } },
   build(layer) {
     const S = makeScene({ gx: .5, gy: .55 }); this.S = S; this.scene = S.scene; this.camera = S.camera;
     const A = [V(.9, 8.1, 9.0), V(.8,.2,-.8),34], B=[V(0,8.8,9.2),V(0,.2,-.8),36];

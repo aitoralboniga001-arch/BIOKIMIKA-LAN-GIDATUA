@@ -67,6 +67,7 @@ export default {
     add(layer, `<div class="farewell-question abs fx d4" data-b="1">Galderarik?</div>`);
     add(layer, `<div class="farewell-names abs fx d5" data-b="1">Eneritz Baranda · Urtzi Castillo · Ane Hormaetxe<br>Nora Navascues · Aitor Alboniga</div>`);
   },
+  afterLayout() { for (const ld of this.leads) ld.sy = ld.y + ld.card.offsetHeight / 2; },
   enter(b) { this.age=0; this.rig.arrive(V(0, b ? .8 : .4, b ? 12.2 : 11), V(0, .1, 0), 34); this.out.set(b); this.lead.set(0); if (!b) this.lead.to(1, 1.6, ease.io, .7); },
   beat(b) { this.rig.go(V(0,b?.8:.4,b?12.2:11),V(0,.1,0),2.4,34); this.out.to(b, 2.6, ease.io); this.lead.to(b ? 0 : 1, b ? .6 : 1.4, ease.io); },
   update(dt, t) {

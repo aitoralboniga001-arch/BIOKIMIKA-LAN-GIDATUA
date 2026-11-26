@@ -186,9 +186,13 @@ export default {
     this.clockHand=new THREE.Group();dial.add(this.clockHand);
     const handMesh=new THREE.Mesh(new THREE.BoxGeometry(.078,.70,.038),new THREE.MeshStandardMaterial({color:COL3.coral}));handMesh.position.set(0,.27,.14);this.clockHand.add(handMesh);
     this.curveAt=at;
-    const ph = (t0, t1, lab, sub, col, b) => { const g = this.ch.phase(t0, t1, lab, col, b); const s = el('text', { x: (this.ch.X(t0) + this.ch.X(t1)) / 2, y: 60, 'text-anchor': 'middle', 'font-size': 22, 'font-weight': 500, fill: PAL.ink2 }, g); s.textContent = sub; };
-    ph(0, TP - PW, '1 · Igoera', 'iristea > kentzea', alpha(PAL.amber, .08), '1-3');
-    ph(TP - PW, TP + PW, '2 · Gailurra', 'iristea = kentzea', alpha(PAL.coral, .1), '2-3');
+    // captions: the rise is left-aligned and the narrow peak window's caption is nudged right, so the two never touch
+    const ph = (t0, t1, lab, sub, col, b, align = 'middle', dx = 0) => { const g = this.ch.phase(t0, t1, lab, col, b);
+      const x = (align === 'start' ? this.ch.X(t0) + 18 : (this.ch.X(t0) + this.ch.X(t1)) / 2) + dx;
+      const head = g.querySelector('text'); head.setAttribute('x', x); head.setAttribute('text-anchor', align);
+      const s = el('text', { x, y: 60, 'text-anchor': align, 'font-size': 22, 'font-weight': 500, fill: PAL.ink2 }, g); s.textContent = sub; };
+    ph(0, TP - PW, '1 · Igoera', 'iristea > kentzea', alpha(PAL.amber, .08), '1-3', 'start');
+    ph(TP - PW, TP + PW, '2 · Gailurra', 'iristea = kentzea', alpha(PAL.coral, .1), '2-3', 'middle', 28);
     ph(TP + PW, 1, '3 · Jaitsiera', 'kentzea > iristea', alpha(PAL.blue, .06), '3-3');
     // probe: the measured point of a single sample (flash ring + reading line to the axis)
     // During serial sampling, connect the two actual samples being compared.

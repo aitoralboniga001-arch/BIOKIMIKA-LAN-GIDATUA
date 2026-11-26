@@ -91,7 +91,7 @@ export default {
       el('path', { d: dd, fill: 'none', stroke: alpha(INK, .14), 'stroke-width': 8, 'stroke-linecap': 'round' }, svg);
       el('path', { d: dd, fill: 'none', stroke: INK2, 'stroke-width': 3.5, 'stroke-dasharray': '3 15', 'stroke-linecap': 'round', class: 'mkflow' }, svg);
     });
-    add(layer, `<div class="abs fx d2" data-b="0-0" style="left:880px;top:236px;font:700 24px/1 var(--sans);color:var(--amber);text-shadow:var(--halo);letter-spacing:.5px">jarduera · U/L</div>`);
+    add(layer, `<div class="abs fx d2" data-b="0-0" style="left:1000px;top:236px;font:700 24px/1 var(--sans);color:var(--amber);text-shadow:var(--halo);letter-spacing:.5px">jarduera · U/L</div>`);
     NODES.forEach(([ic, txt, y], i) => add(layer, `<div class="mk-node fx pop d${i + 2}" data-b="0-0" style="left:888px;top:${y - 40}px;width:377px;white-space:nowrap">${ic === 'tubes' ? TUBES : icon(ic, 52, INK2)}<span>+ ${txt}</span></div>`));
     add(layer, `<div class="mk-node fx pop d5" data-b="0-0" style="left:${IX}px;top:${IY - 78}px;width:350px;flex-direction:column;gap:10px;padding:22px 20px;border:2px solid ${alpha(INK, .5)}">
       ${icon('target', 64, INK)}<span style="font:700 34px/1 var(--sans);color:var(--ink)">interpretazioa</span></div>`);

@@ -12,7 +12,7 @@
 //   fade  — a quick crossfade (going back, jumps).
 // focus() is called with the slide as `this` and returns a world-space THREE.Vector3 (projected with the slide's camera)
 // or a screen point { x, y } in 0..1 (DOM orientation, y down).
-import { THREE, W, H, renderer, composer, renderPass, outputPass, bloom, fxaa, quality, U, clamp, smooth, ease } from './core.js';
+import { THREE, W, H, renderer, composer, renderPass, outputPass, bloom, fxaa, quality, U, clamp, smooth, ease, warmScene } from './core.js';
 import { FullScreenQuad } from '../vendor/three/addons/postprocessing/Pass.js';
 import { CHAPTERS } from './slides/index.js';
 import { CHAPTER_TINT } from './theme.js';
@@ -28,11 +28,11 @@ const QUESTIONS = {
   tissues: 'Jarduera bera izateak lesio bera adierazten al du?',
   intensity: 'Zer aldatzen da lagina beste une batean hartuz gero?',
   kinetics: 'Amilasak eta lipasak denbora-patroi bera al dute?',
-  pancreas: 'Denboraz gain, zer esaten digu forma molekularrak?',
+  pancreas: 'Eta infartu batean: noiz igotzen dira CK eta LDH?',
   ck: 'Bi azpiunitatetik laura pasatzean, zenbat forma sor daitezke?',
   ldh: 'Nola bereizten dira LDHren bost formak lagin batean?',
-  electro: 'Nola uztartu entzimen jatorria eta denbora infartuaren adibidean?',
-  infarct: 'Zein lau galderak ematen diote esanahia emaitzari?',
+  electro: 'Zein lau galderak ematen diote esanahia emaitzari?',
+  infarct: 'Denboraz gain, zer esaten digu forma molekularrak?',
   end: 'Zein iturritan oinarritu dira azalpenak eta 3D egiturak?'
 };
 
@@ -297,6 +297,15 @@ export class Bridge {
   warm() {
     this.mat.uniforms.tA.value = this.rtA.texture; this.mat.uniforms.tB.value = this.rtA.texture;
     const prev=renderer.getRenderTarget(); this.composite(true); this.composite(false); renderer.setRenderTarget(prev);
+  }
+
+  warmOutgoing(s) {
+    if (!this.rtA) return;
+    const prev = renderer.getRenderTarget(), ca = s.camera;
+    U.pxScale.value = this.rtA.height / (2 * Math.tan(THREE.MathUtils.degToRad(ca.fov) / 2));
+    renderer.setRenderTarget(this.rtA); renderer.clear(); renderer.render(s.scene, ca);   // as it is now ...
+    warmScene(s.scene, ca, false, this.rtA);                                                  // ... and with every object shown
+    renderer.setRenderTarget(prev);
   }
 
   composite(high) {
