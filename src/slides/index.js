@@ -20,18 +20,17 @@ export const SLIDES = [title, measure, release, marker, tissues, intensity, kine
 
 // Sub-points of the talk script, so each scene says where it sits: [number, label, first beat, last beat].
 // The engine writes the current one (and the chapter's full list as dots) into the slide's eyebrow.
-export const SUBPOINTS = {   // [section of the written work, label, first beat, last beat]
-  measure:   [['2', 'Entzima plasmatikoak: jatorria', 0, 1], ['2', 'Jarduera katalitikoa · U/L', 2, 2], ['1', 'Lau galdera · 1. helburua', 3, 3]],
-  release:   [['3', 'Jarduera-aldaketen jatorria · 1. irudia', 0, 4], ['3', 'Igoera fisiologikoak', 5, 5]],
-  marker:    [['3', 'Markatzaile erabilgarri baten ezaugarriak', 0, 5]],
-  tissues:   [['4', 'Ehun-espezifikotasuna: ALT eta CK · 1. taula', 0, 7]],
-  intensity: [['5', 'Lesioaren intentsitatea · 2. helburua', 0, 3]],
-  kinetics:  [['6', 'Igoera, gailurra, jaitsiera', 0, 3], ['6', 'Lagin goiztiarra eta berantiarra', 4, 6]],
-  pancreas:  [['6', 'Pankreatitis akutua: amilasa eta lipasa · 2. irudia', 0, 2]],
-  infarct:   [['9', 'Miokardioko infartua', 0, 1], ['9.1', 'CKren eta LDHren bilakaera · 5. irudia', 2, 3], ['9.1', 'Lagin goiztiarra eta berantiarra · 3. helburua', 4, 5]],
-  ck:        [['7.1', 'CKren isoentzimak · 3. irudia', 0, 5]],
-  ldh:       [['7.2', 'LDHren isoentzimak · 2. taula', 0, 4]],
-  electro:   [['8', 'Elektroforesi bidezko identifikazioa · 4. irudia', 0, 2], ['8', 'Erabilera eta abantailak · 5. helburua', 3, 4]],
-  refs:      [['10', 'Bibliografia', 0, 0]],
+export const SUBPOINTS = {   // [script point (part.n), label, first beat, last beat] — numbered in script order, figure/table/goal of the written work in the label
+  measure:   [['1.1', 'Entzimak plasman eta zeluletan', 0, 1], ['1.2', 'Zer neurtzen da · U/L', 2, 2], ['1.3', 'Lau galdera · 1. helburua', 3, 3]],
+  release:   [['2.1', 'Askapena eta eliminazioa · 1. irudia', 0, 4], ['2.2', 'Igoera fisiologikoak', 5, 5]],
+  marker:    [['2.3', 'Markatzaile on baten ezaugarriak', 0, 5]],
+  tissues:   [['2.4', 'Ehun-jatorria: ALT eta CK · 1. taula', 0, 7]],
+  intensity: [['2.5', 'Lesioaren intentsitatea · 2. helburua', 0, 3]],
+  kinetics:  [['3.1', 'Igoera, gailurra, jaitsiera', 0, 3], ['3.2', 'Lagin goiztiarra eta berantiarra', 4, 6]],
+  pancreas:  [['3.3', 'Pankreatitisa: amilasa eta lipasa · 2. irudia', 0, 2]],
+  infarct:   [['3.4', 'Infartua: CK osoa eta LDH · 5. irudia', 0, 3], ['3.5', 'Lagin goiztiarra eta berantiarra · 3. helburua', 4, 5]],
+  ck:        [['4.1', 'CK osoa eta CK-MB · 3. irudia', 0, 5]],
+  ldh:       [['4.2', 'LDHren isoentzimak · 2. taula', 0, 4]],
+  electro:   [['4.3', 'Elektroforesia · 4. irudia', 0, 2], ['4.4', 'Erabilera eta mugak · 5. helburua', 3, 4]],
 };
 export const subpointAt = (id, b) => (SUBPOINTS[id] || []).find(p => b >= p[2] && b <= p[3]) || null;

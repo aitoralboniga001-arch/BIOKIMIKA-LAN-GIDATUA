@@ -53,8 +53,7 @@ function updateChrome() {
   });
 }
 
-// ---------------------------------------------------------------- sub-points (eyebrow: script part · document section + label · dots)
-// The number is the section of the written work (2, 3 … 7.1, 9.1), so it can repeat or jump: the dots go by position.
+// ---------------------------------------------------------------- script sub-points (eyebrow: part · n.m label · dots by position)
 function addSubpoints(s) {
   const eb = s.layer.querySelector('.eyebrow'); if (!eb || !SUBPOINTS[s.id] || s.chapter < 0) return;
   eb.innerHTML = `<b>${s.chapter + 1}</b>${CHAPTERS[s.chapter]}`;
