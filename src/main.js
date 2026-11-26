@@ -53,21 +53,23 @@ function updateChrome() {
   });
 }
 
-// ---------------------------------------------------------------- script sub-points (eyebrow: chapter · n.m label · dots)
+// ---------------------------------------------------------------- sub-points (eyebrow: script part · document section + label · dots)
+// The number is the section of the written work (2, 3 … 7.1, 9.1), so it can repeat or jump: the dots go by position.
 function addSubpoints(s) {
   const eb = s.layer.querySelector('.eyebrow'); if (!eb || !SUBPOINTS[s.id] || s.chapter < 0) return;
   eb.innerHTML = `<b>${s.chapter + 1}</b>${CHAPTERS[s.chapter]}`;
-  const all = SLIDES.filter(x => x.chapter === s.chapter).flatMap(x => (SUBPOINTS[x.id] || []).map(p => p[0]));
-  const sp = h(`<span class="subpt"><span class="sn"></span><span class="st"></span><span class="sd">${all.map(n => `<i data-n="${n}"></i>`).join('')}</span></span>`);
+  s.subAll = SLIDES.filter(x => x.chapter === s.chapter).flatMap(x => SUBPOINTS[x.id] || []);
+  const sp = h(`<span class="subpt"><span class="sn"></span><span class="st"></span><span class="sd">${s.subAll.map(() => '<i></i>').join('')}</span></span>`);
   eb.appendChild(sp); s.subEl = sp;
 }
 function updateSubpoint() {
   const s = SLIDES[state.si], sp = s?.subEl; if (!sp) return;
   const p = subpointAt(s.id, state.bi); if (!p) return;
-  if (sp.dataset.n === p[0]) return;
-  const first = !sp.dataset.n; sp.dataset.n = p[0];
+  const k = String(s.subAll.indexOf(p));
+  if (sp.dataset.k === k) return;
+  const first = !sp.dataset.k; sp.dataset.k = k;
   const write = () => { sp.querySelector('.sn').textContent = p[0]; sp.querySelector('.st').textContent = p[1];
-    sp.querySelectorAll('.sd i').forEach(i => { i.classList.toggle('on', i.dataset.n === p[0]); i.classList.toggle('done', i.dataset.n < p[0]); }); };
+    sp.querySelectorAll('.sd i').forEach((i, j) => { i.classList.toggle('on', j === +k); i.classList.toggle('done', j < +k); }); };
   write(); if (first) return;
   const a = sp.classList.contains('swapA'); sp.classList.toggle('swapA', !a); sp.classList.toggle('swapB', a);  // restart without a layout read
 }

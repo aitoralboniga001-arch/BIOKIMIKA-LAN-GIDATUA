@@ -329,3 +329,4 @@ body.projector #stage img {filter:contrast(1.09);}
 .eyebrow .subpt .sd i { width: 8px; height: 8px; border-radius: 50%; border: 1.5px solid var(--acc); opacity: .45; }
 .eyebrow .subpt .sd i.done { background: var(--acc); opacity: .45; }
 .eyebrow .subpt .sd i.on { background: var(--acc); opacity: 1; transform: scale(1.15); }
+.eyebrow .subpt .sd:has(i:only-child) { display: none; }
