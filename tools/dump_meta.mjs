@@ -1,0 +1,11 @@
+import fs from 'fs'; import path from 'path'; import { pathToFileURL } from 'url';
+const deck = process.argv[2];
+const notes = await import(pathToFileURL(path.join(deck, 'src/notes.js')).href);
+const idx = fs.readFileSync(path.join(deck, 'src/slides/index.js'), 'utf8');
+const imp = Object.fromEntries([...idx.matchAll(/import (\w+) from '\.\/(\w+)\.js'/g)].map(m => [m[1], m[2]]));
+const order = idx.match(/SLIDES = \[([^\]]+)\]/)[1].split(',').map(x => x.trim());
+const CHAPTERS = eval(idx.match(/CHAPTERS = (\[[^\]]+\])/)[1]);
+const SUB = eval('(' + idx.match(/SUBPOINTS = (\{[\s\S]*?\n\});/)[1] + ')');
+const slides = order.map(v => { const src = fs.readFileSync(path.join(deck, 'src/slides', imp[v] + '.js'), 'utf8');
+  const m = src.match(/id: '(\w+)', chapter: (-?\d+), beats: (\d+), title: '([^']+)'/); return { id: m[1], chapter: +m[2], beats: +m[3], title: m[4] }; });
+console.log(JSON.stringify({ slides, CHAPTERS, SUB, NOTES: notes.NOTES }));

@@ -1,5 +1,5 @@
 // Presentation engine: one 16:9 stage, slides made of "beats", → advances a beat, ← goes back.
-import { THREE, W, H, clock, U, initRenderer, resize, renderer, composer, renderPass, bloom, quality, applyBeat, h, warmScene } from './core.js';
+import { THREE, W, H, clock, U, initRenderer, resize, renderer, composer, renderPass, bloom, quality, applyBeat, h, warmScene, issueMaterials, passMaterials } from './core.js';
 import { SLIDES, CHAPTERS, SUBPOINTS, subpointAt } from './slides/index.js';
 import { NOTES } from './notes.js';
 import { Presenter } from './presenter.js';
@@ -225,6 +225,8 @@ function monitorQuality(ms) {
 }
 function frame(now,draw=true) {
   if (!frame.ext) requestAnimationFrame(frame);
+  // high-refresh screens (120/144 Hz) draw every other refresh, ~60-72 fps: same motion, half the GPU work
+  if (!frame.ext && now - last < 10.5) return;
   renderer.info.reset();
   if (!frame.ext && cur) monitorQuality(now-last);
   const dt = Math.max(0, Math.min(.05, (now - last) / 1000)); last = now;
@@ -285,12 +287,17 @@ async function boot() {
   });
   bridge = new Bridge(stage); fit();
   const bar = document.getElementById('loadBar'), prof = { t0: performance.now() };
+  window.__prof = prof;
   const progress = async f => { bar.style.transform = `scaleX(${f})`; await new Promise(r => setTimeout(r, 0)); };
   for (let i = 0; i < SLIDES.length; i++) {
     const s = SLIDES[i];
     s.layer = h(`<div class="layer" data-slide="${s.id}"></div>`); layers.appendChild(s.layer);
     const tb = performance.now(); s.build(s.layer); lightStage(s); addSubpoints(s); (prof.build || (prof.build = [])).push(Math.round(performance.now() - tb));
     s.layer.querySelectorAll('[data-b]').forEach(e => { if (!e.classList.contains('fx') && !e.classList.contains('draw') && !e.classList.contains('dim') && !e.classList.contains('lab')) e.classList.add('fx'); });
+    // hand this slide's programs (with and without shadows) to the driver now: they link in parallel while the
+    // next slides are built, so the warm-up below mostly waits on nothing
+    for (const [sc, cam] of [[s.scene, s.camera], ...(s.warmExtra || [])]) { warmScene(sc, cam, true); renderer.shadowMap.enabled = false; warmScene(sc, cam, true); renderer.shadowMap.enabled = true; }
+    if (i === 0) issueMaterials([bridge.mat, ...composer.passes.flatMap(passMaterials)]);
     await progress((i + 1) / SLIDES.length * .45);
   }
   // the bundled fonts must be in before the text is split into lines (and before anything is seen)
@@ -329,6 +336,7 @@ async function boot() {
     if (!cur || state.swap || a !== state.si) goSlide(a, b, a < state.si ? -1 : 1); else if (b !== state.bi) setBeat(b, b < state.bi ? -1 : 1);
   });
   requestAnimationFrame(frame);
+  prof.ready = performance.now();
   setTimeout(() => document.getElementById('loading').classList.add('gone'), 250);
 }
 window.__pres = { state, get quality(){return quality.level;}, get renderInfo(){return renderer?.info.render;}, get renderedBridge(){return renderedBridge;}, next, prev, goSlide: (a, b) => goSlide(a, b, 1), SLIDES, get bridge() { return !!(bridge && bridge.active); }, grab: n => { grabName = n; }, step: (n = 1, ms = 16.7, lastFrameOnly=false) => { if (staticImage) return; frame.ext = true; try { for (let i=0;i<n;i++) frame(last+ms,!lastFrameOnly||i===n-1); } finally { frame.ext=false; last=performance.now(); } } };

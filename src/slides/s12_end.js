@@ -9,7 +9,7 @@ import { makeTrace } from './s00_trace.js';
 import { el } from '../chart.js';
 const _bf = new THREE.Vector3(); // scratch vector for the bridge focus
 
-const TUBE_Y = -2.08, TUBE_S = 1.05; // cap top kept clear of the title descenders
+const TUBE_Y = -2.24, TUBE_S = 1.02; // cap top kept clear of the title and the lead line
 export default {
   id: 'end', chapter: 4, beats: 2, title: 'Ondorioak', bloom: .55,
   bridgeIn: { focus() { const p = this.tb.plasma; return this.tb.group.localToWorld(_bf.set(0, (p.y0 + p.y1) / 2, 0)); } },
@@ -43,12 +43,13 @@ export default {
 
     add(layer, `<div class="eyebrow" data-b="-0"><b>5</b>Ondorioak</div>`);
     add(layer, `<div class="h1" data-b="-0" style="left:0;right:0;text-align:center;max-width:none;top:96px">Entzima bat neurtzea = <em>abiapuntu</em> erabilgarria</div>`);
-    // summary scheme: each question carries the two take-aways of the talk that answer it
+    add(layer, `<div class="closing-lead abs fx d1" data-b="-0">Odolean entzima baten jarduera igotzen bada, <b>ehunen bat kaltetuta</b> egon daiteke. Emaitza ulertzeko, lau galdera:</div>`);
+    // summary scheme written to be read cold: each question answered in plain sentences, one caveat each
     const Q = [
-      ['Zein ehunetatik?', ['Ehun bakoitzak bere <b>entzima- eta isoentzima-patroia</b> du', '<b>CK-MB</b>, <b>LDH1</b>, <b>LDH5</b>: jatorria iradoki dezakete, ez dute frogatzen'], COL.coral, 96, 262],
-      ['Zenbatekoa?', ['Jarduera = <b>iristearen</b> eta <b>desagertzearen</b> arteko oreka', 'Magnitudeak orientatzen du, ez du <b>larritasuna</b> zuzenean ematen'], COL.amber, 1290, 262],
-      ['Noiz?', ['<b>Igoera → gailurra → jaitsiera</b>: laginaren uneak aldatzen du emaitza', '<b>CK</b> lehenago, <b>LDH</b> luzaroago · <b>lipasa</b> amilasa baino luzaroago'], COL.blue, 96, 612],
-      ['Zer datu kliniko?', ['<b>Beste markatzaileak</b> eta pazientearen datuak', '<b>Laginaren kalitatea</b>: hemolisiak LDH igo dezake'], COL.mint, 1290, 612],
+      ['Zein ehunetatik?', ['Ehun bat kaltetzen denean, bere entzimak <b>odolera</b> igarotzen dira; ehun bakoitzak bere <b>entzima-patroia</b> du', '<b>Isoentzimek</b> (CK-MB, LDH1, LDH5…) jatorria iradoki dezakete, baina ez dute frogatzen'], COL.coral, 96, 262],
+      ['Zenbatekoa?', ['Odoleko jarduera (U/L) <b>oreka</b> bat da: odolera iristen den entzima eta odoletik kentzen dena', 'Igoera handiak kalte handiagoa iradoki dezake, baina ez du <b>larritasuna</b> zuzenean neurtzen'], COL.amber, 1290, 262],
+      ['Noiz?', ['Kaltearen ondoren entzima bakoitza <b>igo, gailurrera iritsi eta jaisten</b> da, bere erritmoan', 'Beraz, <b>laginaren uneak</b> aldatzen du emaitza: infartuan CK lehenago igotzen da, LDHk luzaroago irauten du'], COL.blue, 96, 612],
+      ['Zer datu kliniko?', ['Entzima bat ez da diagnostikoa: <b>beste probekin</b> eta pazientearen datuekin batera interpretatzen da', '<b>Laginaren kalitatea</b> ere bai: hemolisiak (globulu gorriak apurtzeak) LDH igo dezake'], COL.mint, 1290, 612],
     ];
     const svg = el('svg', { class: 'chart', width: 1920, height: 1080, viewBox: '0 0 1920 1080' }); svg.style.left = '0px'; svg.style.top = '0px'; layer.appendChild(svg);
     this.leads = [];
@@ -62,7 +63,7 @@ export default {
       const tail = el('circle', { r: 4, fill: c }, g);
       this.leads.push({ card, path, dot, ring, tail, left: x < 900, x, y, specimen: this.objects[i], order:i, sy: 0, key: '' });
     });
-    add(layer, `<div class="key c" data-b="-0" style="bottom:110px;font-size:32px;color:var(--ink2)">Jatorria · magnitudea · denbora · testuingurua → <em>interpretazioa</em></div>`);
+    add(layer, `<div class="key c" data-b="-0" style="bottom:110px;font-size:32px;color:var(--ink2)">Jatorria · kopurua · unea · testuingurua → <em>interpretazioa</em></div>`);
     add(layer, `<div class="farewell-credit abs fx d1" data-b="1">Oinarrizko Biokimika <b>/</b> B.1 atala</div>`);
     add(layer, `<div class="farewell-title abs fx d2" data-b="1" data-reveal="lines">Eskerrik <em>asko</em></div>`);
     add(layer, `<div class="farewell-question abs fx d4" data-b="1">Galderarik?</div>`);

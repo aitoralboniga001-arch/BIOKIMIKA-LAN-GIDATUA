@@ -30,6 +30,8 @@ export function initRenderer(canvas) {
   renderer.toneMappingExposure = 1.0;
   renderer.setClearColor(new THREE.Color(PAL.bg1), 1);
   renderer.info.autoReset=false;
+  // reading every program's error log blocks until the driver has linked it; the shaders are fixed, so only check on ?debug
+  renderer.debug.checkShaderErrors = /[?&]debug/.test(location.search);
   renderer.shadowMap.enabled = true;
   renderer.shadowMap.type = THREE.PCFSoftShadowMap;
   composer = new EffectComposer(renderer,new THREE.WebGLRenderTarget(4,4,{
@@ -84,6 +86,26 @@ export function warmScene(scene, cam, compileOnly = false, target = null) {
   if (compileOnly) renderer.compile(scene,cam); else renderer.render(scene,cam);
   renderer.setRenderTarget(prev);
   for (let i = 0; i < saved.length; i += 3) { saved[i].visible = saved[i + 1]; saved[i].frustumCulled = saved[i + 2]; }
+}
+// Hands full-screen materials (post-processing passes, transition shader) to the driver without drawing, both as they
+// draw to the screen and into a target, so their programs link in parallel with everything else during loading.
+export function issueMaterials(mats) {
+  const scene = new THREE.Scene(), cam = new THREE.OrthographicCamera(-1, 1, 1, -1, 0, 1), geo = new THREE.PlaneGeometry(2, 2);
+  for (const m of new Set(mats)) if (m?.isMaterial) scene.add(new THREE.Mesh(geo, m));
+  if (!warmRT) warmRT = new THREE.WebGLRenderTarget(64, 36, { type: THREE.HalfFloatType });
+  const prev = renderer.getRenderTarget();
+  for (const target of [null, warmRT]) { renderer.setRenderTarget(target); renderer.compile(scene, cam); }
+  renderer.setRenderTarget(prev); geo.dispose();
+}
+// every material a pass owns (bloom keeps several, some in arrays)
+export function passMaterials(pass) {
+  const out = [];
+  for (const v of Object.values(pass)) {
+    if (v?.isMaterial) out.push(v);
+    else if (Array.isArray(v)) out.push(...v.filter(m => m?.isMaterial));
+    else if (v?.material?.isMaterial) out.push(v.material);
+  }
+  return out;
 }
 export function resize(scale) {
   const dpr = window.devicePixelRatio || 1;
