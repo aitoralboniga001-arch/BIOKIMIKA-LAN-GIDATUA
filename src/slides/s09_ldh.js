@@ -84,7 +84,12 @@ export default {
     COMP.forEach((nH, i) => add(layer, `<div class="abs fx d${i + 1}" data-b="0-0" style="left:${sx[i] - 140}px;top:616px;width:280px;text-align:center">
       <div class="tetramer-key" aria-hidden="true">${[3, 2, 0, 1].map(j=>`<i style="background:${[1,0,3,2][j]<nH ? HT : MT}"></i>`).join('')}</div>
       <div style="font:500 46px/1 var(--serif);letter-spacing:-.035em;color:var(--ink)">LDH${i + 1}</div><div style="font:600 30px/1 var(--sans);margin-top:10px">${formula(nH)}</div></div>`));
-    add(layer, `<div class="note" data-b="0-0" style="left:0;right:0;top:820px;text-align:center;font-size:26px">LDH: piruvato + NADH ⇄ laktatoa + NAD⁺ · forma guztietan erreakzio bera</div>`);
+    // where each form is found (written work, 2. taula): LDH1 · LDH2–4 under one bracket · LDH5
+    const where = (l, w, html, d, extra = '') => add(layer, `<div class="abs fx d${d}" data-b="0-0" style="left:${l}px;top:770px;width:${w}px;text-align:center;font:500 23px/1.2 var(--sans);color:var(--ink2);text-shadow:var(--halo)${extra}">${html}</div>`);
+    where(sx[0] - 190, 380, `<b style="color:${HT}">Miokardioan</b> eta <b style="color:${HT}">eritrozitoetan</b>`, 2);
+    where(sx[1] - 120, sx[3] - sx[1] + 240, `<b style="color:${PAL.violet}">Ehun askotan</b>`, 3, `;top:762px;padding-top:8px;border-top:2px solid ${alpha(PAL.violet, .4)}`);
+    where(sx[4] - 190, 380, `<b style="color:${MT}">Gibelean</b> eta <b style="color:${MT}">hezur-muskuluan</b>`, 4);
+    add(layer, `<div class="note" data-b="0-0" style="left:0;right:0;top:846px;text-align:center;font-size:26px">LDH: piruvato + NADH ⇄ laktatoa + NAD⁺ · forma guztietan erreakzio bera</div>`);
     add(layer, `<div class="structure-source" data-b="0-0">Egitura-eredua · LDH5 (PDB 1I10)<br>H/M konbinazioak kolorez adierazita</div>`);
     const TIS = [[[['heart', PAL.red], ['rbc', PAL.red]], 'Miokardioa · eritrozitoak', PAL.red], [[['tissue', PAL.violet]], 'Ehun askotan', PAL.violet], [[['liver', PAL.blue], ['muscle', PAL.blue]], 'Gibela · hezur-muskulua', PAL.blue]];
     const chipRow = add(layer, `<div class="abs" data-b="1-3" style="left:96px;top:300px;display:flex;gap:12px">${TIS.map(([ics, name, c]) => `<div style="box-sizing:border-box;display:flex;align-items:center;gap:6px;padding:5px 14px 5px 8px;border-radius:14px;border:1.5px solid ${alpha(c, .35)};background:rgba(255,255,255,.6);font:600 22px/1.1 var(--sans);white-space:nowrap;color:${c};opacity:.45;transition:opacity .5s,background .5s,border-color .5s">${ics.map(([n, cc]) => icon(n, 30, cc)).join('')}<span>${name}</span></div>`).join('')}</div>`);

@@ -13,15 +13,15 @@ import infarct from './s11_infarct.js';
 import end from './s12_end.js';
 import refs from './s13_refs.js';
 
-// chapters follow the talk script in the appendix (1 + 3 + 3 + 2 min); part 3 shows figures 2 and 5, so the
-// infarct example sits there, after the pancreatitis one; the closing is a short fifth block
+// chapters follow the talk script in the appendix; scenes run in the written work's section order (user's choice,
+// 2026-11-27), so the infarct (section 9, figure 5) closes part 4 after electrophoresis; the closing is a short fifth block
 export const CHAPTERS = ['Sarrera eta neurketa', 'Igoeraren jatorria eta intentsitatea', 'Agerpena eta iraupena', 'Isoentzimen ekarpena', 'Ondorioak'];
-export const SLIDES = [title, measure, release, marker, tissues, intensity, kinetics, pancreas, infarct, ck, ldh, electro, end, refs];
+export const SLIDES = [title, measure, release, marker, tissues, intensity, kinetics, pancreas, ck, ldh, electro, infarct, end, refs];
 
 // Sub-points of the talk script, so each scene says where it sits: [number, label, first beat, last beat].
 // The engine writes the current one (and the chapter's full list as dots) into the slide's eyebrow.
 export const SUBPOINTS = {   // [section of the written work, label, first beat, last beat]. Slides follow the SCRIPT order
-  // (user's choice), so the section number jumps 6 → 9 → 7.1: the script shows figure 5 (section 9) in part 3.
+  // in section order: 6 → 7.1 → 7.2 → 8 → 9.
   measure:   [['2', 'Entzima plasmatikoak: jatorria', 0, 1], ['2', 'Jarduera katalitikoa · U/L', 2, 2], ['1', 'Lau galdera · 1. helburua', 3, 3]],
   release:   [['3', 'Jarduera-aldaketen jatorria · 1. irudia', 0, 4], ['3', 'Igoera fisiologikoak', 5, 5]],
   marker:    [['3', 'Markatzaile erabilgarri baten ezaugarriak', 0, 5]],

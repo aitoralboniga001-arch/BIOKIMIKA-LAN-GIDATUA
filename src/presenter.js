@@ -49,7 +49,7 @@ button{background:var(--panel);color:var(--ink);border:1px solid var(--line);bor
 #rep td.n{text-align:right;font-family:'JetBrains Mono',monospace} #rep tr.over td.n:last-child{color:var(--bad)}
 `;
 // suggested minutes per chapter (talk script appendix): 1 + 3 + 3 + 2 + 1 = 10; the cover counts toward chapter 1
-const BUDGET = [1, 3, 3, 2, 1];  // part 3 now includes the infarct example (figure 5)
+const BUDGET = [1, 3, 2, 3, 1];  // the infarct example (figure 5, ~1 min) moved from part 3 to the end of part 4
 const mmss = s => `${s < 0 ? '−' : ''}${String(Math.floor(Math.abs(s) / 60)).padStart(2, '0')}:${String(Math.floor(Math.abs(s)) % 60).padStart(2, '0')}`;
 const LS = 'entzimak.rehearsal';
 

@@ -25,7 +25,7 @@ const excessMax = m => { let mx = 0; for (let i = 0; i <= 200; i++) mx = Math.ma
 const XCK = excessMax(CKM), XLD = excessMax(LDM);
 
 export default {
-  id: 'infarct', chapter: 2, beats: 6, title: 'Miokardioko infartua: CK, LDH eta denbora', bloom: .5,
+  id: 'infarct', chapter: 3, beats: 6, title: 'Miokardioko infartua: CK, LDH eta denbora', bloom: .5,
   bridgeIn: { focus() { return this.hg.getWorldPosition(_bf); } },
   bridge: { mode: 'dive', focus() { const p = this.tC.tube.plasma; return this.tC.group.localToWorld(_bf.set(0, (p.y0 + p.y1) / 2, 0)); } },
   build(layer) {
@@ -55,7 +55,7 @@ export default {
     this.tC = tubeMeter(this.scene, { x: TCX, y: TUBE_Y, s: TUBE_S, color: COL3.coral, n: 60, seed: 5 });
     this.tL = tubeMeter(this.scene, { x: TLX, y: TUBE_Y, s: TUBE_S, color: COL3.blue, n: 60, seed: 9 });
 
-    add(layer, `<div class="eyebrow"><b>3</b>Agerpena eta iraupena</div>`);
+    add(layer, `<div class="eyebrow"><b>4</b>Isoentzimen ekarpena</div>`);
     add(layer, `<div class="h1">Miokardioko infartua: <span style="color:var(--coral)">CK</span>, <span style="color:var(--blue)">LDH</span> eta <em>denbora</em></div>`);
     add(layer, `<div class="key" data-b="1-1" style="left:96px;top:900px;bottom:auto;font-size:34px;max-width:1500px">Miokardioa kaltetzen denean, zelula barruko entzimak <em>odolera</em> askatu daitezke</div>`);
     this.ch = new Chart(layer, { x: 900, y: 300, w: 900, h: 420, ref: REF, xLabel: 'Infartuaren ondorengo denbora', yLabel: 'Jarduera plasmatikoa', b: '2' });
