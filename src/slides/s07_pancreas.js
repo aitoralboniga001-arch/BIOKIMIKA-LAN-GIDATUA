@@ -111,7 +111,7 @@ export default {
     add(layer, `<div class="key" data-b="-0" style="left:760px;top:850px;bottom:auto;font-size:36px;max-width:1080px">Amilasa: igoera <em>azkarra</em>, jaitsiera <em>azkarra</em></div>`);
     add(layer, `<div class="key" data-b="1-1" style="left:760px;top:850px;bottom:auto;font-size:36px;max-width:1080px">Lipasaren igoerak amilasarena baino <em>luzaroago</em> iraun dezake</div>`);
     add(layer, `<div class="key" data-b="2" style="left:760px;top:850px;bottom:auto;font-size:36px;max-width:1080px">Lagin berantiarra: amilasa <span style="color:var(--amber)">ohiko tartean</span>, lipasa <span style="color:var(--teal)">oraindik altu</span></div>`);
-    add(layer, `<div class="note" style="left:760px;top:918px;font-size:22px">Eskema kualitatiboa, Pérez Ruiz et al. [4] oinarritua · lipasa odolean luzaroago irauten du</div>`);
+    add(layer, `<div class="note" style="left:760px;top:918px;font-size:22px">Eskema kualitatiboa [4] · lipasa odolean luzaroago irauten du</div>`);
     this.b = 0;
   },
   enter(b) { if(b===0)this.rig.jump(V(-2.05,.6,7.45),V(-1.78,.50,0),34); else this.rig.arrive(V(0,0,10),V(0,0,0),34); this.flow.clear(); this.apply(b, true, 1); },

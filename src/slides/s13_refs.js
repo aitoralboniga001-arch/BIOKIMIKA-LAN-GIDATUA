@@ -7,11 +7,14 @@ import { alpha, PAL, LINE } from '../theme.js';
 import { CamRig, V } from '../rig.js';
 import { el, bell } from '../chart.js';
 
+// the course bibliography entries marked "Atala: 1" (B.1), numbered as the citations in the written work and slides
+// ([1] Devlin, [2] Newsholme & Leech, [3] Herrera, [4] González de Buitrago); the editions actually consulted are in the
+// written work, section 10
 const REFS = [
-  'York JL. Enzimas: clasificación, cinética y control. In: Devlin TM, ed. <i>Bioquímica: libro de texto con aplicaciones clínicas</i>. 4. arg. Barcelona: Reverté; 2015. 10. kap.',
-  'Newsholme EA, Leech TR. <i>Functional Biochemistry in Health and Disease</i>. Chichester: Wiley-Blackwell; 2010. 3. eta 11. kap.',
-  'Herrera E, Ramos MP, Roca P, Viana M. <i>Bioquímica básica: base molecular de los procesos fisiológicos</i>. Barcelona: Elsevier España; 2014. 3. kap.',
-  'Pérez Ruiz L, Bobillo López H, Ramos Cedeño AM, et al. <i>Bioquímica clínica para tecnologías de la salud</i>. La Habana: Editorial Ciencias Médicas; 2012. 7. eta 14. kap.',
+  'Devlin TM. <i>Bioquímica</i>. Reverté; 2004. 10. kap.',
+  'Newsholme EA, Leech AR. <i>Bioquímica Médica</i>. Interamericana; 1986. 3. kap.',
+  'Herrera E. <i>Bioquímica</i>. McGraw-Hill Interamericana; 1996. 7. kap.',
+  'González de Buitrago JM. <i>Bioquímica clínica</i>. McGraw-Hill Interamericana; 1998. 5. eta 7. kap.',
 ];
 // the author list is everything before the first ". " (the citation text itself is unchanged)
 const split = r => { const k = r.indexOf('. '); return [r.slice(0, k + 1), r.slice(k + 1)]; };
@@ -48,7 +51,7 @@ export default {
     add(layer, `<div class="reference-models abs fx d5" data-b="0">
       <b>3D egituren iturria</b> RCSB Protein Data Bank
       <span>CK-MM · 1I0E</span><span>LDH5 · 1I10</span></div>`);
-    add(layer, `<div class="note fx fade d6" data-b="0" style="left:96px;top:933px;font-size:22px">Eskema guztiak egileenak dira, aipatutako iturrietan oinarrituak.</div>`);
+    add(layer, `<div class="note fx fade d6" data-b="0" style="left:96px;top:912px;width:880px;font-size:22px;line-height:1.4">Irakasgaiaren bibliografia (B.1 atala). Kontsultatutako edizioak: lan idatziaren 10. atala.<br>Eskema guztiak egileenak dira, aipatutako iturrietan oinarrituak.</div>`);
   },
   enter() { this.rig.arrive(V(0, 0, 10), V(0, 0, 0), 40); },
   update(dt, t) {

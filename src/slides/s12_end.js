@@ -43,17 +43,18 @@ export default {
 
     add(layer, `<div class="eyebrow" data-b="-0"><b>5</b>Ondorioak</div>`);
     add(layer, `<div class="h1" data-b="-0" style="left:0;right:0;text-align:center;max-width:none;top:96px">Entzima bat neurtzea = <em>abiapuntu</em> erabilgarria</div>`);
+    // summary scheme: each question carries the two take-aways of the talk that answer it
     const Q = [
-      ['Zein ehunetatik?', 'Ehun-banaketa eta isoentzimak', COL.coral, 96, 280],
-      ['Zenbatekoa?', 'Magnitudeak orientatzen du, ez du larritasuna zuzenean ematen', COL.amber, 1290, 280],
-      ['Noiz?', 'Agerpen-zinetika: laginaren unea', COL.blue, 96, 640],
-      ['Zer datu kliniko?', 'Beste markatzaileak, laginaren kalitatea eta pazientearen datuak', COL.mint, 1290, 640],
+      ['Zein ehunetatik?', ['Ehun bakoitzak bere <b>entzima- eta isoentzima-patroia</b> du', '<b>CK-MB</b>, <b>LDH1</b>, <b>LDH5</b>: jatorria iradoki dezakete, ez dute frogatzen'], COL.coral, 96, 262],
+      ['Zenbatekoa?', ['Jarduera = <b>iristearen</b> eta <b>desagertzearen</b> arteko oreka', 'Magnitudeak orientatzen du, ez du <b>larritasuna</b> zuzenean ematen'], COL.amber, 1290, 262],
+      ['Noiz?', ['<b>Igoera → gailurra → jaitsiera</b>: laginaren uneak aldatzen du emaitza', '<b>CK</b> lehenago, <b>LDH</b> luzaroago · <b>lipasa</b> amilasa baino luzaroago'], COL.blue, 96, 612],
+      ['Zer datu kliniko?', ['<b>Beste markatzaileak</b> eta pazientearen datuak', '<b>Laginaren kalitatea</b>: hemolisiak LDH igo dezake'], COL.mint, 1290, 612],
     ];
     const svg = el('svg', { class: 'chart', width: 1920, height: 1080, viewBox: '0 0 1920 1080' }); svg.style.left = '0px'; svg.style.top = '0px'; layer.appendChild(svg);
     this.leads = [];
     Q.forEach(([q, a, c, x, y], i) => {
       const card = add(layer, `<div class="closing-question abs fx d${i + 1}" data-b="-0" style="left:${x}px;top:${y}px;--question:${c}">
-        <h4>${q}</h4><p>${a}</p></div>`);
+        <h4>${q}</h4><ul>${a.map(x => `<li>${x}</li>`).join('')}</ul></div>`);
       const g = el('g', { 'data-b': '-0', class: 'fx fade' }, svg);
       const path = el('path', { fill: 'none', stroke: c, 'stroke-width': 3.3, 'stroke-linecap': 'round', opacity: .75 }, g);
       const ring = el('circle', { r: 9, fill: 'none', stroke: alpha(c, .35), 'stroke-width': 2 }, g);
