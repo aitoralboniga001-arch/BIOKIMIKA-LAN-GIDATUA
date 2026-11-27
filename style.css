@@ -330,6 +330,7 @@ body.projector #stage img {filter:contrast(1.09);}
 @keyframes subptInB { from { opacity: 0; transform: translateY(6px); } }
 .eyebrow .subpt::before { content: ''; position: absolute; left: 0; top: -2px; bottom: -2px; width: 2px; background: var(--acc); opacity: .35; }
 .eyebrow .subpt .sn { font: 500 22px/1 var(--mono); color: var(--acc); margin-right: 12px; }
+.eyebrow .subpt .sn:empty { display: none; }
 .eyebrow .subpt .st { font: 600 22px/1 var(--sans); color: var(--ink2); letter-spacing: .01em; }
 .eyebrow .subpt .sd { display: inline-flex; gap: 7px; margin-left: 18px; }
 .eyebrow .subpt .sd i { width: 8px; height: 8px; border-radius: 50%; border: 1.5px solid var(--acc); opacity: .45; }

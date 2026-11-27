@@ -13,10 +13,11 @@ import infarct from './s11_infarct.js';
 import end from './s12_end.js';
 import refs from './s13_refs.js';
 
-// chapters follow the talk script in the appendix; scenes run in the written work's section order (user's choice,
-// 2026-11-27), so the infarct (section 9, figure 5) closes part 4 after electrophoresis; the closing is a short fifth block
+// chapters and scene order follow the talk script in the appendix (user's choice, 2026-11-27): part 3 shows figures 2
+// and 5 (pancreatitis, then the infarct), part 4 the isoenzymes; the closing is a short fifth block. The infarct's
+// headers carry no section number (the script cites it as figure 5), so no "9" appears before 7.1
 export const CHAPTERS = ['Sarrera eta neurketa', 'Igoeraren jatorria eta intentsitatea', 'Agerpena eta iraupena', 'Isoentzimen ekarpena', 'Ondorioak'];
-export const SLIDES = [title, measure, release, marker, tissues, intensity, kinetics, pancreas, ck, ldh, electro, infarct, end, refs];
+export const SLIDES = [title, measure, release, marker, tissues, intensity, kinetics, pancreas, infarct, ck, ldh, electro, end, refs]; // the order of the script appendix (gidoia)
 
 // Sub-points of the talk script, so each scene says where it sits: [number, label, first beat, last beat].
 // The engine writes the current one (and the chapter's full list as dots) into the slide's eyebrow.
@@ -29,7 +30,7 @@ export const SUBPOINTS = {   // [section of the written work, label, first beat,
   intensity: [['5', 'Lesioaren intentsitatea · 2. helburua', 0, 3]],
   kinetics:  [['6', 'Igoera, gailurra, jaitsiera', 0, 3], ['6', 'Lagin goiztiarra eta berantiarra', 4, 6]],
   pancreas:  [['6', 'Pankreatitis akutua: amilasa eta lipasa · 2. irudia', 0, 2]],
-  infarct:   [['9', 'Miokardioko infartua', 0, 1], ['9.1', 'CKren eta LDHren bilakaera · 5. irudia', 2, 3], ['9.1', 'Lagin goiztiarra eta berantiarra · 3. helburua', 4, 5]],
+  infarct:   [['','Miokardioko infartua · 5. irudia',0,1],['','CKren eta LDHren bilakaera',2,3],['','Lagin goiztiarra eta berantiarra · 3. helburua',4,5]],
   ck:        [['7.1', 'CKren isoentzimak · 3. irudia', 0, 5]],
   ldh:       [['7.2', 'LDHren isoentzimak · 2. taula', 0, 4]],
   electro:   [['8', 'Elektroforesi bidezko identifikazioa · 4. irudia', 0, 2], ['8', 'Erabilera eta abantailak · 5. helburua', 3, 4]],

@@ -28,11 +28,11 @@ const QUESTIONS = {
   tissues: 'Jarduera bera izateak lesio bera adierazten al du?',
   intensity: 'Zer aldatzen da lagina beste une batean hartuz gero?',
   kinetics: 'Amilasak eta lipasak denbora-patroi bera al dute?',
-  pancreas: 'Denboraz gain, zer esaten digu forma molekularrak?',
+  pancreas: 'Eta infartu batean: noiz igotzen dira CK eta LDH?',
   ck: 'Bi azpiunitatetik laura pasatzean, zenbat forma sor daitezke?',
   ldh: 'Nola bereizten dira LDHren bost formak lagin batean?',
-  electro: 'Eta infartu batean: noiz igotzen dira CK eta LDH?',
-  infarct: 'Zein lau galderak ematen diote esanahia emaitzari?',
+  electro: 'Zein lau galderak ematen diote esanahia emaitzari?',
+  infarct: 'Denboraz gain, zer esaten digu forma molekularrak?',
   end: 'Zein iturritan oinarritu dira azalpenak eta 3D egiturak?'
 };
 

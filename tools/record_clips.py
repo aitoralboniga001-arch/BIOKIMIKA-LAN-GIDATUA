@@ -10,7 +10,7 @@ import importlib.util
 spec = importlib.util.spec_from_file_location('mp', deck / 'tools' / 'make_pptx.py')
 src = open(deck / 'tools' / 'make_pptx.py', encoding='utf8').read()
 PLAN = eval(src[src.index('PLAN = {') + 7: src.index('}\n', src.index('PLAN = {')) + 1])
-SECS = {(3,3):2.4,(4,2):1.35,(4,3):4.15,(4,4):4.65,(4,5):4.65,(12,3):2.10,(12,4):3.55,(8,1):3.2,(10,5):3.4,(11,1):2.65,(11,2):3.6,(11,3):4.8,(12,2):4.3}
+SECS = {(3,3):2.4,(4,2):1.35,(4,3):4.15,(4,4):4.65,(4,5):4.65,(9,3):2.10,(9,4):3.55,(8,1):3.2,(11,5):3.4,(12,1):2.65,(12,2):3.6,(12,3):4.8,(9,2):4.3}
 FF = shutil.which('ffmpeg')
 with sync_playwright() as pw:
     b = pw.chromium.launch(executable_path=r'C:\Program Files\Google\Chrome\Application\chrome.exe', args=['--disable-background-timer-throttling', '--disable-renderer-backgrounding'])
