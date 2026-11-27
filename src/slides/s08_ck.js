@@ -65,6 +65,9 @@ export default {
     // beat 0 names and total bar
     const sx = [372, 960, 1548];
     FORMS.forEach((f, i) => add(layer, `<div class="abs fx d${i + 1}" data-b="0-0" style="left:${sx[i] - 200}px;top:700px;width:400px;text-align:center;font:500 48px/1 var(--serif);letter-spacing:-.035em">${ck(f[0], f[1])}</div>`));
+    // where each form is found (written work, 7.1)
+    const WHERE = [`<b style="color:${MT}">Hezur-muskuluan</b> nagusitzen da`, `<b style="color:${PAL.red}">Miokardioan</b> nahiz <b style="color:${MT}">hezur-muskuluan</b>`, `<b style="color:${PAL.violet}">Garunean</b> eta beste zenbait ehunetan`];
+    WHERE.forEach((w, i) => add(layer, `<div class="abs fx d${i + 2}" data-b="0-0" style="left:${sx[i] - 220}px;top:760px;width:440px;text-align:center;font:500 23px/1.2 var(--sans);color:var(--ink2);text-shadow:var(--halo)">${w}</div>`));
     add(layer, `<div class="abs" data-b="0-0" style="left:560px;top:820px;width:800px">
       <div style="display:flex;justify-content:space-between;align-items:baseline;font:600 22px/1 var(--sans);color:var(--ink2);margin-bottom:12px">CK osoaren jarduera = forma guztien ekarpena<span style="font:italic 400 22px/1 var(--serif);color:var(--mute)">serum normala · eskematikoa</span></div>
       <div style="display:flex;height:34px;border-radius:17px;overflow:hidden;border:1px solid var(--line)"><div style="flex:89;background:${M3}"></div><div style="flex:7;background:linear-gradient(90deg,${M3} 50%,${B3} 50%);border-left:2px solid #fff"></div><div style="flex:4;background:${B3};border-left:2px solid #fff"></div></div>
